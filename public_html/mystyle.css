@@ -1,0 +1,49 @@
+
+td
+{
+	font-size: 12px;
+}
+
+#unitinfo
+{
+	font-family: "Consolas";
+	font-size: 12px;
+}
+
+#datatable {
+	font-family: "Consolas";
+	font-size: 12px;
+}  
+
+#consoletext {
+	font-family: "Consolas";
+	font-size: 12px;
+}
+
+#tip {
+    background-color:white;
+    border:1px solid blue;
+    position:absolute;
+    left:-200px;
+    top:100px;
+}
+
+div.bar {
+    display: inline-block;
+    width: 2px;
+    height: 100%;   /* We'll override this later */
+    background-color: teal;
+}
+
+div.bar_hp {
+    display: inline-block;
+    height: 100%;   /* We'll override this later */
+    background-color: green;
+	font-size: 6px;
+}
+div.bar_mp {
+    display: inline-block;
+    height: 40%;   /* We'll override this later */
+    background-color: blue;
+	font-size: 6px;
+}

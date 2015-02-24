@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <link rel="stylesheet" type="text/css" href="mystyle.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <title>Test</title>
+</head>
+
+<body>
+    <br>
+    <div class="container">
+	<div class="row">
+            <div class="col-md-8">
+                <!--
+                <canvas id="canvas_draw" width=896 height=504 style="width: 896px; height: 504px; border:1px solid #000000;">
+                -->
+                <canvas id="canvas_draw" style="width: 100%; height: 100%; border:1px solid #000000;">
+                    Canvas not supported.
+		</canvas>
+                <canvas id="tip" width=100 height=25></canvas>
+            </div>
+            <!-- CHARACTER SHEET -->
+            <div class="col-md-4 bg-success consoletext" style="border: 1px solid black">
+		<p id="unitinfo" class="unitinfo">...</p>
+            </div>
+	</div>
+	
+	<div class="row">
+            <div class="col-md-6">
+                <table class="source connected table table-bordered mytext table-condensed" id="datatable">
+		</table>
+            </div>
+            <br>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 60%;">
+                    60%
+                </div>
+            </div>
+            <div class="progress">
+                <div class="progress-bar progress-bar-success" style="width: 35%">
+                    <span class="sr-only">35% Complete (success)</span>
+                </div>
+                <div class="progress-bar progress-bar-warning progress-bar-striped" style="width: 20%">
+                    <span class="sr-only">20% Complete (warning)</span>
+                </div>
+                <div class="progress-bar progress-bar-danger" style="width: 10%">
+                    <span class="sr-only">10% Complete (danger)</span>
+                </div>
+            </div>
+            <div>
+                <input id="defaultSlider" type="range" min="20" max="300" />
+                <p class="note">Current value: <span id="currentValue">0</span></p>
+            </div>
+            <!-- CHECK OUT LIST GROUPS (w/linked items), BADGES, PANELS -->
+
+        </div>
+    </div>
+  
+    <script src="my_astar.js"></script>
+    <script src="units.js"></script>
+    <script src="world.js"></script>
+    <script src="shadow.js"></script>
+    <script src="script.js"></script>
+
+</body>
+</html>
