@@ -1,4 +1,6 @@
 
+// This is a test comment
+
 $(document).ready(function()
 {
     var context = canvas_draw.getContext('2d');
