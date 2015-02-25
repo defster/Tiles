@@ -177,6 +177,109 @@ function addUnit(name, race, job, lvl, type)
         
     }
 
+    // Where u1 attacks u2
+    function calcDamage(u1, u2)
+    {
+        // The damage bonus/penalty from your STR to enemy's VIT for melee attack.
+        var fStr = 0;
+        
+        // rank = weapon dps / 9 floored. weaponRank is -rank to +rank
+        var weaponRank = 0;
+        var fStrLowerCap = -weaponRank;
+        var fStrUpperCap = weaponRank + 8;
+        // 0 = str, 2 = vit. should make that array global..
+        fStr = units[u1].stats['str'] - units[u2].stats['vit'];
+        if (fStr < fStrLowerCap)
+            fStr = fStrLowerCap;
+        if (fStr > fStrUpperCap)
+            fStr = fStrUpperCap;
+        
+        // TODO: fStr2 for ranged attack
+        
+        // Calculate base damage
+        var baseDamage;
+        var pDIF = 1; // *
+        baseDamage = 5 + fStr; // HARDCODED
+        
+        // pDIF; attack vs defense difference
+        
+        var ratio = units[u1].stats['attack'] / units[u2].stats['defense'];
+        //console.log("ratio: ", ratio);
+        if (ratio > 2.25)
+            ratio = 2.25;
+        var levelDiff = units[u2].lvl - units[u1].lvl;
+        if (levelDiff < 0)
+            levelDiff = 0;
+        //console.log("levelDiff: ", levelDiff);
+        var cRatio = ratio - (0.05 * levelDiff);
+        
+        var r = cRatio;
+        //console.log("cRatio: ", r);
+        var b = 0;
+        if (0 <= r && r <= 0.5)
+            b = 1 + (10 / 9) * (r - 0.5);
+        if (0.5 <= r && r <= 3/4)
+            b = 1;
+        if (3/4 <= r && r <= 2.25)
+            b = 1 + (10 / 9) * (r - 3/4);
+        
+        //console.log("b max: ", b);
+        
+        var a = 0;
+        if (r <= 0.5)
+            a = 1/6;
+        if (0.5 <= r && r < 1.25)
+            a = 1 + (10 / 9) * (r - 1.25);
+        if (1.25 <= r && r <= 1.5)
+            a = 1;
+        if (1.5 < r && r <= 2.25)
+            a = 1 + (10 / 9) * (r - 1.5);
+        
+        //console.log("a min: ", a);
+        
+        var ra1 = 1/6;
+        var randomizer = b - a;
+        var ra2 = a + (Math.random() * randomizer);
+        ra2 = Math.max(ra2, ra1);
+        //console.log("random result; ", ra2);
+        
+        pDIF = ra2;
+  
+        // HIT CHANCE - Accuracy vs. Evasion
+        
+        var hitRate = 75; // percentile
+        hitRate += ((units[u1].stats['accuracy'] - units[u2].stats['evasion']) * 0.5);
+        
+        var lvlDiff = units[u2].lvl - units[u1].lvl;
+        
+        if (lvlDiff < 0)
+            lvlDiff = 0;
+        var accPenalty = (lvlDiff * 4);
+        hitRate -= (accPenalty * 0.5);
+        hitRate = Math.floor(hitRate);
+        
+        if (hitRate < 20)
+            hitRate = 20;
+        if (hitRate > 95)
+            hitRate = 95;
+        
+        
+        var hit = Math.random() * 100;
+        var evaded;
+        if (hit > hitRate)
+            evaded = true;
+        else
+            evaded = false;
+        
+        //console.log("pDIF: ", pDIF);
+        var damage = Math.floor(baseDamage * pDIF);
+
+        if (evaded)
+            return [-1, hitRate];
+        else
+            return [damage, hitRate];
+    }
+
 /*
  * columns[key] = {
         sortable: true,
