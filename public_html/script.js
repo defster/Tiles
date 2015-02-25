@@ -14,14 +14,17 @@ $(document).ready(function()
     
     context.canvas.width = context.canvas.clientWidth;
     context.canvas.height = context.canvas.clientWidth * 0.6;
+    var rectCanvas = context.canvas.getBoundingClientRect();
+
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
+    
     // Mouse position in worldspace.
     var mouse_x, mouse_y;
     var pMouse_x, pMouse_y;
     var mouse_x_tile, mouse_y_tile;
 
-    var SHADOWS = false;
+    var SHADOWS = true;
     
     // This value will always be the index of the currently selected unit.
     var unit = 0;
@@ -195,10 +198,8 @@ $(document).ready(function()
     {
         var success = true;
 
-        var rect = context.canvas.getBoundingClientRect();
-
-        mouse_x = (pMouse_x - rect.left + unitpos[unit][1] - midx) | 0;
-        mouse_y = (pMouse_y - rect.top + unitpos[unit][0] - midy) | 0;
+        mouse_x = (pMouse_x - rectCanvas.left + unitpos[unit][1] - midx) | 0;
+        mouse_y = (pMouse_y - rectCanvas.top + unitpos[unit][0] - midy) | 0;
         if (mouse_x < 0 || mouse_y < 0)
             success = false;
 
@@ -230,9 +231,7 @@ $(document).ready(function()
         str = units[u].name + ", Lv." + units[u].lvl;
         str += " " + racenames[units[u].race];
         str += " " + jobnames[units[u].job].toUpperCase();
-
-        //$("#unitname").text(str);
-        
+        /*
         str += ", Exp " + units[u].exp + "<br><br>";
         str += "hp " + units[u].maxhp + "/" + units[u].hp + "<br>";
         str += "mp " + units[u].maxmp + "/" + units[u].mp + "<br><br>";
@@ -252,7 +251,7 @@ $(document).ready(function()
         str += "feet...: ---<br>";
         str += "rring..: ---<br>";
         str += "lring..: ---<br><br>";
-        
+        */
         str += "<br>atk cd: " + units[u].attackCooldownCur + "/" + units[0].attackCooldownMax + "<br>";
         if (units[u].targetUnit !== -1)
             str += "target_id: " + units[u].targetUnit;
@@ -432,21 +431,18 @@ $(document).ready(function()
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
         // Limit drawing to what will actually be on screen.
-        var starty, startx, endy, endx;
-
         var maxx = (((screenX / tilesize) / 2) | 0) + 2;
         var maxy = (((screenY / tilesize) / 2) | 0) + 2;
 
-        starty = posy_tile - maxy;
-        startx = posx_tile - maxx;
-        endy = posy_tile + maxy;
-        endx = posx_tile + maxx;
+        var starty = posy_tile - maxy;
+        var startx = posx_tile - maxx;
+        var endy = posy_tile + maxy;
+        var endx = posx_tile + maxx;
 
         if (starty < 0) starty = 0;
         if (startx < 0) startx = 0;
         if (endy >= map.length) endy = map.length - 1;
         if (endx >= map[0].length) endx = map[0].length - 1;
-
 
         // Draw all visible tiles.
         context.fillStyle = "#bbbbbb";
@@ -459,10 +455,12 @@ $(document).ready(function()
                 drawy = (y * tilesize) + midy - posy;
                 if (map[y][x] > 0)
                 {
+                    
                     if (map[y][x] === 1)
                         context.fillStyle = "#bbbbbb";
                     else
                         context.fillStyle = "#aa9999";
+                    
                     context.fillRect(drawx, drawy, tilesize, tilesize);
                 }
             }
@@ -472,7 +470,8 @@ $(document).ready(function()
         // Get a list of all surrounding walls ('2') from current unit tile.
         if (SHADOWS)
         {
-            var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
+            //var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
+            var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) - 3, ((maxTilesY / 2) | 0) - 3);
             var edges = getEdges(map, n, midx - posx, midy - posy, tilesize);
 
             var px = unitpos[unit][1] + midx - posx;
@@ -486,7 +485,7 @@ $(document).ready(function()
             for (var i = 0; i < endpoints.length; i++)
                 context.lineTo(endpoints[i][0], endpoints[i][1]);
 
-            var rad2 = 300;
+            var rad2 = 150;
             var grd = context.createRadialGradient(screenX/2, screenY/2, 5, screenX/2, screenY/2, rad2);
             grd.addColorStop(0,"darkgrey");
             grd.addColorStop(1,"dimgrey");
@@ -612,7 +611,7 @@ $(document).ready(function()
                 context.fillText(units[i].name, xx, yy);
             }
         }
-        context.font = "20px Consolas";
+        //context.font = "20px Consolas";
         context.fillStyle = "lightcoral";
         for (var i = 0; i < units.length; i++)
         {
