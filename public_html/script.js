@@ -8,14 +8,20 @@ $(document).ready(function()
     var tipCanvas = document.getElementById("tip");
     var tipCtx = tipCanvas.getContext("2d");
     
+    var img = new Image();
+    //img.src = 'minecraft_dirt.jpg';
+    img.src = 'tileset.png';
+    
     $('#canvas_draw').css('background-color', 'dimgrey');
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
-    context.imageSmoothingEnabled = false;
     
     context.canvas.width = context.canvas.clientWidth;
     context.canvas.height = context.canvas.clientWidth * 0.6;
     var rectCanvas = context.canvas.getBoundingClientRect();
 
+    context.imageSmoothingEnabled = false;
+    context.webkitImageSmoothingEnabled = false;
+    
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
     
@@ -24,13 +30,13 @@ $(document).ready(function()
     var pMouse_x, pMouse_y;
     var mouse_x_tile, mouse_y_tile;
 
-    var SHADOWS = true;
+    var SHADOWS = false;
     
     // This value will always be the index of the currently selected unit.
     var unit = 0;
     var paths = [[]];
     var speed = 2;
-    var tilesize = 24;
+    var tilesize = 40;
     var maxTilesX = (screenX / tilesize) | 0;
     var maxTilesY = (screenY / tilesize) | 0;
     var midx = (screenX / 2) | 0;
@@ -447,21 +453,39 @@ $(document).ready(function()
         // Draw all visible tiles.
         context.fillStyle = "#bbbbbb";
         var drawx, drawy;
+        var tilesetX, tilesetY;
         for (var y = starty; y < endy; y++)
         {
             for (var x = startx; x < endx; x++)
             {
                 drawx = (x * tilesize) + midx - posx;
                 drawy = (y * tilesize) + midy - posy;
-                if (map[y][x] > 0)
+                //if (map[y][x] > 0)
                 {
                     
+                    if (map[y][x] === 2 || map[y][x] === 1)
+                    {
+                        tilesetX = 0*32;
+                        tilesetY = 14*32;
+                        //context.fillStyle = "#bbbbbb";
+                    }
+                    /*
                     if (map[y][x] === 1)
-                        context.fillStyle = "#bbbbbb";
-                    else
-                        context.fillStyle = "#aa9999";
+                    {
+                        tilesetX = 8*32;
+                        tilesetY = 13*32;
+                    }
+                    */
+                    if (map[y][x] === 0)
+                    {
+                        tilesetX = 55*32;
+                        tilesetY = 14*32;
+                    }
+                        //context.fillStyle = "#aa9999";
                     
-                    context.fillRect(drawx, drawy, tilesize, tilesize);
+                    //context.fillRect(drawx, drawy, tilesize, tilesize);
+                    //if (map[y][x] !== 1)
+                        context.drawImage(img, tilesetX, tilesetY, 32, 32, drawx, drawy, tilesize, tilesize);
                 }
             }
         }
@@ -470,8 +494,8 @@ $(document).ready(function()
         // Get a list of all surrounding walls ('2') from current unit tile.
         if (SHADOWS)
         {
-            //var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
-            var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) - 3, ((maxTilesY / 2) | 0) - 3);
+            var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
+            //var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) - 3, ((maxTilesY / 2) | 0) - 3);
             var edges = getEdges(map, n, midx - posx, midy - posy, tilesize);
 
             var px = unitpos[unit][1] + midx - posx;
@@ -485,14 +509,16 @@ $(document).ready(function()
             for (var i = 0; i < endpoints.length; i++)
                 context.lineTo(endpoints[i][0], endpoints[i][1]);
 
-            var rad2 = 150;
+            context.globalCompositeOperation = "screen";
+            var rad2 = 300;
             var grd = context.createRadialGradient(screenX/2, screenY/2, 5, screenX/2, screenY/2, rad2);
-            grd.addColorStop(0,"darkgrey");
-            grd.addColorStop(1,"dimgrey");
+            grd.addColorStop(0,"grey");
+            grd.addColorStop(1,"black");
             context.fillStyle = grd;
             //context.fillStyle = "grey";
             context.closePath();
             context.fill();
+            context.globalCompositeOperation = "source-over";
         }
         
  
@@ -577,13 +603,13 @@ $(document).ready(function()
         }
         context.stroke();
         */
-
+       
         // Draw circle on current UNIT
         context.beginPath();
         context.strokeStyle = "#00ff00";
         xx = unitpos[unit][1] + midx - posx;
         yy = unitpos[unit][0] + midy - posy;
-        context.arc(xx, yy, 15, 0, Math.PI*2);
+        context.arc(xx, yy, tilesize/2, 0, Math.PI*2);
         context.stroke();
 
         // Draw circle on current units TARGET
@@ -594,7 +620,7 @@ $(document).ready(function()
             context.beginPath();
             xx = unitpos[tar][1] + midx - posx;
             yy = unitpos[tar][0] + midy - posy;
-            context.arc(xx, yy, 15, 0, Math.PI * 2);
+            context.arc(xx, yy, tilesize/2, 0, Math.PI * 2);
             context.stroke();
         }
 
@@ -602,13 +628,17 @@ $(document).ready(function()
         var xx, yy;
         context.font = "12px Consolas";
         context.fillStyle = "lightgreen";
+        var xt, yt;
         for (var i = 0; i < units.length; i++)
         {
             if (units[i].type === 0)
             {
                 xx = unitpos[i][1] + midx - posx;
                 yy = unitpos[i][0] + midy - posy;
-                context.fillText(units[i].name, xx, yy);
+                yt = 2*32;
+                xt = 1*32;
+                //context.fillText(units[i].name, xx, yy);
+                context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
             }
         }
         //context.font = "20px Consolas";
@@ -619,7 +649,10 @@ $(document).ready(function()
             {
                 xx = unitpos[i][1] + midx - posx;
                 yy = unitpos[i][0] + midy - posy;
-                context.fillText("@", xx, yy);
+                yt = 3*32;
+                xt = 7*32;
+                //context.fillText("@", xx, yy);
+                context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
             }
         }
         
@@ -641,7 +674,7 @@ $(document).ready(function()
 
     function attack(u1, u2)
     {
-        this.units = units;
+        //this.units = units;
         var dam = calcDamage(u1, u2);
         if (dam[0] !== -1)
         {
