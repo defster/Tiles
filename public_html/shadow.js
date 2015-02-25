@@ -76,11 +76,18 @@ function getEdges(map, n, relX, relY, tilesize)
         var lineList = [];
         var lines = 0;
        
+       
+       var offset = 100;
+        lineList[lines++] = [offset, offset, screenX-offset, offset];
+        lineList[lines++] = [screenX-offset, offset, screenX-offset, screenY-offset];
+        lineList[lines++] = [screenX-offset, screenY-offset, offset, screenY-offset];
+        lineList[lines++] = [offset, screenY-offset, offset, offset];
+        /*
         lineList[lines++] = [0, 0, screenX-1, 0];
         lineList[lines++] = [screenX-1, 0, screenX-1, screenY-1];
         lineList[lines++] = [screenX-1, screenY-1, 0, screenY-1];
         lineList[lines++] = [0, screenY-1, 0, 0];
-
+        */
         // Check if we can draw lines between points.
         // Also check if edge is visible from the units point of view.
         // NEW: also store angle from unit
