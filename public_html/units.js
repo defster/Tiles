@@ -188,7 +188,7 @@ function addUnit(name, race, job, lvl, type)
         var fStrLowerCap = -weaponRank;
         var fStrUpperCap = weaponRank + 8;
         // 0 = str, 2 = vit. should make that array global..
-        fStr = units[u1].stats['str'] - units[u2].stats['vit'];
+        fStr = units[u1].str - units[u2].vit;
         if (fStr < fStrLowerCap)
             fStr = fStrLowerCap;
         if (fStr > fStrUpperCap)
@@ -203,7 +203,7 @@ function addUnit(name, race, job, lvl, type)
         
         // pDIF; attack vs defense difference
         
-        var ratio = units[u1].stats['attack'] / units[u2].stats['defense'];
+        var ratio = units[u1].attack / units[u2].defense;
         //console.log("ratio: ", ratio);
         if (ratio > 2.25)
             ratio = 2.25;
@@ -248,7 +248,7 @@ function addUnit(name, race, job, lvl, type)
         // HIT CHANCE - Accuracy vs. Evasion
         
         var hitRate = 75; // percentile
-        hitRate += ((units[u1].stats['accuracy'] - units[u2].stats['evasion']) * 0.5);
+        hitRate += ((units[u1].accuracy - units[u2].evasion) * 0.5);
         
         var lvlDiff = units[u2].lvl - units[u1].lvl;
         

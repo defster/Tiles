@@ -113,7 +113,7 @@ $(document).ready(function()
         if (units[u].targetUnit !== -1 && units[u].attackCooldownCur === 0)
         {
             var target = units[u].targetUnit;
-            console.log(units[u].name + " tries to attack " + units[target].name + " id[" + target + "].");
+            //console.log(units[u].name + " tries to attack " + units[target].name + " id[" + target + "].");
             units[u].attackCooldownMax = 180;
             units[u].attackCooldownCur = 180;
             
@@ -509,7 +509,7 @@ $(document).ready(function()
         
         // Draw timer-bar above units head
         // shows Cooldown-timer
-        context.fillStyle = "#ff0000";
+        context.fillStyle = "#ff8844";
         for (var i = 0; i < units.length; i++)
         {
             //if (units[i].type === 0)
@@ -527,13 +527,13 @@ $(document).ready(function()
 
                     mx = ((steps * units[i].attackCooldownCur)) | 0;
 
-                    context.fillRect(xx, yy - 21, 100, 1);
+                    context.rect(xx-1, yy - 21, 102, 9);
                     context.fillRect(xx, yy - 20, mx, 7);
 
                 }
             }
         }
-        
+        context.stroke();
         
         /*
         for (var i = 0; i < units.length; i++)
@@ -646,7 +646,7 @@ $(document).ready(function()
         if (dam[0] !== -1)
         {
             //console.log(units[u1].name + " attacks " + units[u2].name + " for " + dam[0] + " (" + dam[1] + "%) points of damage.");
-            console.log(units[u1].name + " hits " + units[u2].name + " for " + dam[0] + " points of damage.");
+            //console.log(units[u1].name + " hits " + units[u2].name + " for " + dam[0] + " points of damage.");
             //dam[0] = 200;
             units[u2].hp -= dam[0];
             if (units[u2].hp < 1)
@@ -655,17 +655,17 @@ $(document).ready(function()
                 units[u2].isDead = true;
                 units[u1].targetUnit = -1;
                 units[u1].exp += 100;
-                console.log(units[u1].name + " defeated " + units[u2].name + "!");
-                console.log(units[u1].name + " gains 100 experience points.");
-                console.log("(deleting unit " + u2);
+                //console.log(units[u1].name + " defeated " + units[u2].name + "!");
+                //console.log(units[u1].name + " gains 100 experience points.");
+                //console.log("(deleting unit " + u2);
                 units.splice(u2, 1);
                 unitpos.splice(u2, 1);
                 
             }
         }
-        else
+        //else
             //console.log(units[u1].name + " attacks " + units[u2].name + " (" + dam[1] + "%), but missed.");
-            console.log(units[u1].name + " swings at " + units[u2].name + ", but misses.");
+            //console.log(units[u1].name + " swings at " + units[u2].name + ", but misses.");
             
     }
 
