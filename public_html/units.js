@@ -17,8 +17,10 @@ function addUnit(name, race, job, lvl, type)
         name: name, lvl: lvl, job: job, race: race, exp: 0, 
 
         // Each time a modifier is applied or removed, all stats are recalculated.
-        str: 0, dex: 0, vit: 0, agi: 0, int: 0, mnd: 0, chr: 0, atk: 0,
-        acc: 0, def: 0, eva: 0, maxhp: 0, hp: 0, maxmp: 0, mp: 0,
+        str: 0, dex: 0, vit: 0, agi: 0, int: 0, mnd: 0, chr: 0,
+        attack: 0, accuracy: 0, defense: 0, evasion: 0,
+        maxhp: 0, hp: 0, maxmp: 0, mp: 0,
+        combatskill: 0,
         
         type: type,
         // Non-unit information still important to have. Not sure if x and y fit in here.
@@ -37,21 +39,21 @@ function addUnit(name, race, job, lvl, type)
     {
         var JobScales =
                 {
-                    blm: {hp: 'f', mp: 'b', str: 'f', dex: 'c', vit: 'f', agi: 'c', intl: 'a', mnd: 'e', chr: 'd'},
-                    mnk: {hp: 'a', mp: 'x', str: 'c', dex: 'b', vit: 'a', agi: 'f', intl: 'g', mnd: 'd', chr: 'e'},
-                    thf: {hp: 'd', mp: 'x', str: 'd', dex: 'a', vit: 'd', agi: 'b', intl: 'c', mnd: 'g', chr: 'g'},
-                    rdm: {hp: 'd', mp: 'd', str: 'd', dex: 'd', vit: 'e', agi: 'e', intl: 'c', mnd: 'c', chr: 'd'},
-                    war: {hp: 'b', mp: 'x', str: 'a', dex: 'c', vit: 'd', agi: 'c', intl: 'f', mnd: 'f', chr: 'e'},
-                    whm: {hp: 'e', mp: 'c', str: 'd', dex: 'f', vit: 'd', agi: 'e', intl: 'e', mnd: 'a', chr: 'c'}
+                    blm: {hp: 'f', mp: 'b', str: 'f', dex: 'c', vit: 'f', agi: 'c', int: 'a', mnd: 'e', chr: 'd'},
+                    mnk: {hp: 'a', mp: 'x', str: 'c', dex: 'b', vit: 'a', agi: 'f', int: 'g', mnd: 'd', chr: 'e'},
+                    thf: {hp: 'd', mp: 'x', str: 'd', dex: 'a', vit: 'd', agi: 'b', int: 'c', mnd: 'g', chr: 'g'},
+                    rdm: {hp: 'd', mp: 'd', str: 'd', dex: 'd', vit: 'e', agi: 'e', int: 'c', mnd: 'c', chr: 'd'},
+                    war: {hp: 'b', mp: 'x', str: 'a', dex: 'c', vit: 'd', agi: 'c', int: 'f', mnd: 'f', chr: 'e'},
+                    whm: {hp: 'e', mp: 'c', str: 'd', dex: 'f', vit: 'd', agi: 'e', int: 'e', mnd: 'a', chr: 'c'}
                 };
 
         var RaceScales =
                 {
-                    hume: {hp: 'd', mp: 'd', str: 'd', dex: 'd', vit: 'd', agi: 'd', intl: 'd', mnd: 'd', chr: 'd'},
-                    elvaan: {hp: 'c', mp: 'e', str: 'b', dex: 'e', vit: 'c', agi: 'f', intl: 'f', mnd: 'b', chr: 'd'},
-                    tarutaru: {hp: 'g', mp: 'a', str: 'f', dex: 'd', vit: 'e', agi: 'c', intl: 'a', mnd: 'e', chr: 'd'},
-                    mithra: {hp: 'd', mp: 'd', str: 'e', dex: 'a', vit: 'e', agi: 'b', intl: 'd', mnd: 'e', chr: 'f'},
-                    galka: {hp: 'a', mp: 'g', str: 'c', dex: 'd', vit: 'a', agi: 'e', intl: 'e', mnd: 'd', chr: 'f'}
+                    hume: {hp: 'd', mp: 'd', str: 'd', dex: 'd', vit: 'd', agi: 'd', int: 'd', mnd: 'd', chr: 'd'},
+                    elvaan: {hp: 'c', mp: 'e', str: 'b', dex: 'e', vit: 'c', agi: 'f', int: 'f', mnd: 'b', chr: 'd'},
+                    tarutaru: {hp: 'g', mp: 'a', str: 'f', dex: 'd', vit: 'e', agi: 'c', int: 'a', mnd: 'e', chr: 'd'},
+                    mithra: {hp: 'd', mp: 'd', str: 'e', dex: 'a', vit: 'e', agi: 'b', int: 'd', mnd: 'e', chr: 'f'},
+                    galka: {hp: 'a', mp: 'g', str: 'c', dex: 'd', vit: 'a', agi: 'e', int: 'e', mnd: 'd', chr: 'f'}
                 };
 
         var SkillScales =
@@ -65,8 +67,8 @@ function addUnit(name, race, job, lvl, type)
                 };
         
         
-        var StatNames = ["str", "dex", "vit", "agi", "intl", "mnd", "chr"];
-        var derivedStatNames = ["attack", "defense", "accuracy", "evasion", "m_accuracy", "m_attack", "m_defense", "m_evasion"];
+        var StatNames = ["str", "dex", "vit", "agi", "int", "mnd", "chr"];
+        //var derivedStatNames = ["attack", "defense", "accuracy", "evasion", "m_accuracy", "m_attack", "m_defense", "m_evasion"];
 
         var HPScaleArray = {a: 9, b: 8, c: 7, d: 6, e: 5, f: 4, g: 3, x: 0};
         var HPBaseArray = {a: 19, b: 17, c: 16, d: 14, e: 13, f: 11, g: 10, x: 0};
@@ -93,7 +95,6 @@ function addUnit(name, race, job, lvl, type)
 
         // RACE HP
         var race = racenames[units[u].race];
-        //console.log(race);
         HPScale = HPScaleArray[RaceScales[race]['hp']];
         HPBase = HPBaseArray[RaceScales[race]['hp']];
         HPScaleXXX = HPScaleXXXArray[RaceScales[race]['hp']];
@@ -110,8 +111,6 @@ function addUnit(name, race, job, lvl, type)
         var hp = race_hp + job_hp;
 
         // Set final HP values.
-        //units[u].vitals['maxhp'] = hp;
-        //units[u].vitals['hp'] = hp;
         units[u].maxhp = hp;
         units[u].hp = hp;
 
@@ -131,8 +130,6 @@ function addUnit(name, race, job, lvl, type)
         if (MPScale === 0)
             mp = 0;
 
-        //units[u].vitals['maxmp'] = mp;
-        //units[u].vitals['mp'] = mp;
         units[u].maxmp = mp;
         units[u].mp = mp;
 
@@ -148,10 +145,17 @@ function addUnit(name, race, job, lvl, type)
             sc = StatScaleArray[JobScales[job][t]];
             sb = StatBaseArray[JobScales[job][t]];
             js = sc * (lvl - 1) + sb;
-            stat = rs + js;
+            stat = Math.floor(rs + js);
 
             // Add the | 0 to clamp float to int.
-            units[u].stats[t] = stat | 0;
+            //units[u].stats[t] = stat | 0;
+            if (StatNames[i] === "str") units[u].str = stat;
+            if (StatNames[i] === "dex") units[u].dex = stat;
+            if (StatNames[i] === "vit") units[u].vit = stat;
+            if (StatNames[i] === "agi") units[u].agi = stat;
+            if (StatNames[i] === "int") units[u].int = stat;
+            if (StatNames[i] === "mnd") units[u].mnd = stat;
+            if (StatNames[i] === "chr") units[u].chr = stat;
         }
         
         //
@@ -159,22 +163,18 @@ function addUnit(name, race, job, lvl, type)
         //
         var skillRank = SkillScales[job].weapon;
         var r2 = (SkillScaleArray[skillRank] * lvl) + SkillBaseArray[skillRank];
-        units[u].stats['combatskill'] = r2;
+        units[u].combatskill = r2;
+
         skillRank = SkillScales[job].evasion;
         r2 = (SkillScaleArray[skillRank] * lvl) + SkillBaseArray[skillRank];
-        units[u].stats['evasion'] = r2;
+        units[u].evasion = r2;
   
-        units[u].stats['attack'] = Math.floor(8 + units[u].stats['combatskill'] + ((3 * units[u].stats['str']) / 4));
-        units[u].stats['defense'] = Math.floor((units[u].stats['vit'] / 2) + 8 + lvl);
+        units[u].attack = Math.floor(8 + units[u].combatskill + ((3 * units[u].str) / 4));
+        units[u].defense = Math.floor((units[u].vit / 2) + 8 + lvl);
         
         // ACCURACY
-        var acc = units[u].stats['combatskill'] + ((3 * units[u].stats['dex']) / 4 );
-        units[u].stats['accuracy'] = Math.floor(acc);
-        
-        // Evasion is job-specific skill. How to deal?
-        units[u].stats['m_accuracy'] = 0;
-        units[u].stats['m_attack'] = 0;
-        
+        var acc = units[u].combatskill + ((3 * units[u].dex) / 4 );
+        units[u].accuracy = Math.floor(acc);
     }
 
     // Where u1 attacks u2
