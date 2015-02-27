@@ -77,7 +77,7 @@ function getEdges(map, n, relX, relY, tilesize)
         var lines = 0;
        
        
-       var offset = 100;
+       var offset = 1;
         lineList[lines++] = [offset, offset, screenX-offset, offset];
         lineList[lines++] = [screenX-offset, offset, screenX-offset, screenY-offset];
         lineList[lines++] = [screenX-offset, screenY-offset, offset, screenY-offset];
