@@ -20,14 +20,6 @@ td
 	font-size: 12px;
 }
 
-#tip {
-    background-color:white;
-    border:1px solid blue;
-    position:absolute;
-    left:-200px;
-    top:100px;
-}
-
 div.bar {
     display: inline-block;
     width: 2px;

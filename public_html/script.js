@@ -3,17 +3,17 @@
 
 $(document).ready(function()
 {
-    var context = canvas_draw.getContext('2d');
-
-    var tipCanvas = document.getElementById("tip");
-    var tipCtx = tipCanvas.getContext("2d");
-    
-    var img = new Image();
-    //img.src = 'minecraft_dirt.jpg';
-    img.src = 'tileset.png';
-    
     $('#canvas_draw').css('background-color', 'dimgrey');
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
+    
+    var gl;
+    var context = canvas_draw.getContext('2d');
+
+    //var tipCanvas = document.getElementById("tip");
+    //var tipCtx = tipCanvas.getContext("2d");
+    
+    var img = new Image();
+    img.src = 'tileset.png';
     
     context.canvas.width = context.canvas.clientWidth;
     context.canvas.height = context.canvas.clientWidth * 0.6;
@@ -21,7 +21,6 @@ $(document).ready(function()
 
     context.imageSmoothingEnabled = false;
     context.webkitImageSmoothingEnabled = false;
-    
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
     
@@ -69,8 +68,220 @@ $(document).ready(function()
     var unitpos = [[]];
     //var enemypos = [[]];
 
+    var fragmentShader = "precision mediump float;" +
+                         "varying vec4 vColor;" +
+                         "void main(void) {" +
+                         "  gl_FragColor = vColor; }";
+                      
+    var vertexShader = "attribute vec3 aVertexPosition;" +
+                       "attribute vec4 aVertexColor;" +
+                       "uniform mat4 uMVMatrix;" +
+                       "uniform mat4 uPMatrix;" +
+                       "varying vec4 vColor;" +
+                       "void main(void) {" +
+                       "  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);" +
+                       "  vColor = aVertexColor; }";
+                                              
+    
+    var shaderProgram;
+    var mvMatrix = mat4.create();
+    var mvMatrixStack = [];
+    var pMatrix = mat4.create();
+
+    initWebGL();
+    initBuffers();
     startup();
 
+    var rCube = 0;
+    function renderWebGL()
+    {
+        rCube = rCube + 1.0;
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
+        mat4.identity(mvMatrix);
+        mat4.translate(mvMatrix, [0.0, 0.0, -8.0]);
+        //mvPushMatrix();
+        mat4.rotate(mvMatrix, degToRad(rCube), [1, 1, 1]);
+        
+        
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
+        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, cubeVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+        setMatrixUniforms();
+        gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+        
+        //mvPopMatrix();
+        
+    }
+
+    function initWebGL()
+    {
+        try
+        {
+            var canvas;
+            canvas = document.getElementById("tip");
+            gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+            gl.canvas.width = gl.canvas.clientWidth;
+            gl.canvas.height = gl.canvas.clientWidth * 0.6;
+            gl.viewportWidth = gl.canvas.width;
+            gl.viewportHeight = gl.canvas.height;
+        } catch (e) {
+        }
+        if (!gl) {
+            console.log("Could not initialize WebGL.");
+        }
+
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        
+        shaderProgram = gl.createProgram();
+        gl.attachShader(shaderProgram, getShader(gl.VERTEX_SHADER, vertexShader));
+        gl.attachShader(shaderProgram, getShader(gl.FRAGMENT_SHADER, fragmentShader));
+        gl.linkProgram(shaderProgram);
+        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) 
+        {
+            alert("Could not initialise shaders");
+        }
+        
+        gl.useProgram(shaderProgram);
+        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+        
+        shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
+        gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
+        
+        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
+        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+        // done with shaders
+        
+    }
+        
+    function mvPushMatrix()
+    {
+        var copy = mat4.create();
+        mat4.set(mvMatrix, copy);
+        mvMatrixStack.push(copy);
+    }
+    
+    function mvPopMatrix()
+    {
+        if (mvMatrixStack.length === 0)
+            throw "Invalid popMatrix!";
+        mvMatrix = mvMatrixStack.pop();
+    }
+    
+    function getShader(type, text) 
+    {
+        var shader = gl.createShader(type);
+        gl.shaderSource(shader, text);
+        gl.compileShader(shader);
+        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+            throw gl.getShaderInfoLog(shader);
+        return shader;
+    }
+        
+    function setMatrixUniforms()
+    {
+        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
+        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
+    }
+        
+    function degToRad(degrees)
+    {
+        return degrees * Math.PI / 180;
+    }
+        
+    var cubeVertexPositionBuffer;
+    var cubeVertexColorBuffer;
+    var cubeVertexIndexBuffer;
+    function initBuffers()
+    {
+        cubeVertexPositionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
+        var vertices = [
+            // Front face
+            -1.0, -1.0,  1.0,
+             1.0, -1.0,  1.0,
+             1.0,  1.0,  1.0,
+            -1.0,  1.0,  1.0,
+
+            // Back face
+            -1.0, -1.0, -1.0,
+            -1.0,  1.0, -1.0,
+             1.0,  1.0, -1.0,
+             1.0, -1.0, -1.0,
+
+            // Top face
+            -1.0,  1.0, -1.0,
+            -1.0,  1.0,  1.0,
+             1.0,  1.0,  1.0,
+             1.0,  1.0, -1.0,
+
+            // Bottom face
+            -1.0, -1.0, -1.0,
+             1.0, -1.0, -1.0,
+             1.0, -1.0,  1.0,
+            -1.0, -1.0,  1.0,
+
+            // Right face
+             1.0, -1.0, -1.0,
+             1.0,  1.0, -1.0,
+             1.0,  1.0,  1.0,
+             1.0, -1.0,  1.0,
+
+            // Left face
+            -1.0, -1.0, -1.0,
+            -1.0, -1.0,  1.0,
+            -1.0,  1.0,  1.0,
+            -1.0,  1.0, -1.0
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        cubeVertexPositionBuffer.itemSize = 3;
+        cubeVertexPositionBuffer.numItems = 24;
+        
+        cubeVertexColorBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
+        var colors = [
+            [1.0, 0.0, 0.0, 1.0], // Front face
+            [1.0, 1.0, 0.0, 1.0], // Back face
+            [0.0, 1.0, 0.0, 1.0], // Top face
+            [1.0, 0.5, 0.5, 1.0], // Bottom face
+            [1.0, 0.0, 1.0, 1.0], // Right face
+            [0.0, 0.0, 1.0, 1.0]  // Left face
+        ];
+        var unpackedColors = [];
+        for (var i in colors)
+        {
+            var color = colors[i];
+            for (var j = 0; j < 4; j++)
+                unpackedColors = unpackedColors.concat(color);
+        }
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(unpackedColors), gl.STATIC_DRAW);
+        cubeVertexColorBuffer.itemSize = 4;
+        cubeVertexColorBuffer.numItems = 24;
+        
+        cubeVertexIndexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
+        var cubeVertexIndices = [
+            0, 1, 2,      0, 2, 3,    // Front face
+            4, 5, 6,      4, 6, 7,    // Back face
+            8, 9, 10,     8, 10, 11,  // Top face
+            12, 13, 14,   12, 14, 15, // Bottom face
+            16, 17, 18,   16, 18, 19, // Right face
+            20, 21, 22,   20, 22, 23  // Left face
+        ];
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
+        cubeVertexIndexBuffer.itemSize = 1;
+        cubeVertexIndexBuffer.numItems = 36;
+    }
+        
     function hover()
     {
         for (var i = 0; i < units.length; i++)
@@ -79,15 +290,15 @@ $(document).ready(function()
             var yt = (unitpos[i][0] / tilesize) | 0;
             if (xt === mouse_x_tile && yt === mouse_y_tile)
             {
-                tipCanvas.style.left = (unitpos[i][1]) + midx - unitpos[unit][1] + 25 + "px";
-                tipCanvas.style.top = (unitpos[i][0]) + midy - unitpos[unit][0] - 30 + "px";
-                tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height);
-                tipCtx.fillText(units[i].name + " [" + units[i].hp + "/" + units[i].maxhp + "]", 5, 15);
+                //tipCanvas.style.left = (unitpos[i][1]) + midx - unitpos[unit][1] + 25 + "px";
+                //tipCanvas.style.top = (unitpos[i][0]) + midy - unitpos[unit][0] - 30 + "px";
+                //tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height);
+                //tipCtx.fillText(units[i].name + " [" + units[i].hp + "/" + units[i].maxhp + "]", 5, 15);
                 //console.log("hovering over unit: ", i);
                 return i;
             }
         }
-        tipCanvas.style.left = -800 + "px";
+        //tipCanvas.style.left = -800 + "px";
         //tipCanvas.style.top = (unitpos[i][0]) + midy - unitpos[unit][0] + "px";
         return -1;
     }
@@ -420,6 +631,8 @@ $(document).ready(function()
 
     function draw()
     {
+        renderWebGL();
+        
         hover ();
 
         draw_unitinfo(unit);

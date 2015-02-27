@@ -14,15 +14,21 @@
     <br>
     <div class="container">
 	<div class="row">
-            <div class="col-md-9">
+            <div class="col-md-6">
                 <!--
                 <canvas id="canvas_draw" width=896 height=504 style="width: 896px; height: 504px; border:1px solid #000000;">
                 -->
                 <canvas id="canvas_draw" style="width: 100%; height: 100%; border:1px solid #000000;">
                     Canvas not supported.
 		</canvas>
-                <canvas id="tip" width=100 height=25></canvas>
             </div>
+            <div class="col-md-6">
+                <canvas id="tip" style="width: 100%; height: 100%; border:1px solid #000000;">
+                    Canvas not supported.
+                </canvas>
+            </div>
+        </div>
+        <div class="row">    
             <!-- CHARACTER SHEET -->
             <div class="col-md-3 bg-success consoletext" style="border: 1px solid black">
 		<p id="unitinfo" class="unitinfo">...</p>
@@ -71,6 +77,7 @@
         
     </div>
   
+    <script src="glMatrix-0.9.5.min.js"></script>
     <script src="my_astar.js"></script>
     <script src="units.js"></script>
     <script src="world.js"></script>
