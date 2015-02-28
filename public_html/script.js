@@ -5,6 +5,7 @@ $(document).ready(function()
 {
     $('#canvas_draw').css('background-color', 'dimgrey');
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
+    $('body').on('contextmenu', "#tip", function (e){ return false; });
     
     var gl;
     var context = canvas_draw.getContext('2d');
@@ -24,6 +25,9 @@ $(document).ready(function()
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
     
+    var scale = 1; // too soon?
+    var rotation = false;
+
     // Mouse position in worldspace.
     var mouse_x, mouse_y;
     var pMouse_x, pMouse_y;
@@ -35,11 +39,11 @@ $(document).ready(function()
     var unit = 0;
     var paths = [[]];
     var speed = 2;
-    var tilesize = 40;
-    var maxTilesX = (screenX / tilesize) | 0;
-    var maxTilesY = (screenY / tilesize) | 0;
-    var midx = (screenX / 2) | 0;
-    var midy = (screenY / 2) | 0;
+    var tilesize = 32;
+    var maxTilesX = ((screenX / tilesize)/scale) | 0;
+    var maxTilesY = ((screenY / tilesize)/scale) | 0;
+    var midx = ((screenX / 2)/scale) | 0;
+    var midy = ((screenY / 2)/scale) | 0;
 	
     var worldWidth = 128;
     var worldHeight = 128;
@@ -340,7 +344,8 @@ $(document).ready(function()
     }
 
     // Clicking mouse on a tile creates a A* path for the selected unit.
-    $("canvas").mousedown(function (e)
+    canvas_draw.addEventListener('mousedown', function(e)
+    //$("canvas").mousedown(function (e) // This one worked on ALL canvases - not good when i had more than one.
     {
         if (e.which === 3)
         {
@@ -382,7 +387,7 @@ $(document).ready(function()
                 moveTo(unit, [mouse_y_tile, mouse_x_tile]);
                 //units[unit].targetUnit = -1;
         }
-    });
+    }, false);
 
     function Select_Unit(u)
     {
@@ -435,13 +440,20 @@ $(document).ready(function()
         }
     }
 
+    canvas_draw.addEventListener('mousemove', function(e)
+    {
+        pMouse_x = e.pageX / scale;
+        pMouse_y = e.pageY / scale;
+       //console.log(e); 
+    }, false);
 
+    /*
     $("canvas").mousemove(function (e)
     {
         pMouse_x = e.pageX;
         pMouse_y = e.pageY;
     });
-
+    */
    function draw_unitinfo(u)
     {
         var str;
@@ -673,6 +685,13 @@ $(document).ready(function()
             {
                 drawx = (x * tilesize) + midx - posx;
                 drawy = (y * tilesize) + midy - posy;
+                
+                if (rotation)
+                {
+                    drawx -= midx;
+                    drawy -= midy;
+                }
+                
                 //if (map[y][x] > 0)
                 {
                     
@@ -848,6 +867,11 @@ $(document).ready(function()
             {
                 xx = unitpos[i][1] + midx - posx;
                 yy = unitpos[i][0] + midy - posy;
+                if (rotation)
+                {
+                    xx -= midx;
+                    yy -= midy;
+                }
                 yt = 2*32;
                 xt = 1*32;
                 //context.fillText(units[i].name, xx, yy);
@@ -862,6 +886,11 @@ $(document).ready(function()
             {
                 xx = unitpos[i][1] + midx - posx;
                 yy = unitpos[i][0] + midy - posy;
+                if (rotation)
+                {
+                    xx -= midx;
+                    yy -= midy;
+                }
                 yt = 3*32;
                 xt = 7*32;
                 //context.fillText("@", xx, yy);
@@ -985,9 +1014,24 @@ $(document).ready(function()
         */
     };
 
+    var rScale = 1;
     function render()
     {
+        //context.save();
+        //context.translate(screenX / 2, screenY / 2);
+        //rScale = rScale + 0.01;
+        //var r = (Math.sin(rScale));
+        //midx = (screenX/2) / r;
+        //midy = (screenY/2) / r;
+        //context.scale(r, r);
+        //context.translate(unitpos[unit][1] - midx, unitpos[unit][0] - midy);
+        //context.translate(unitpos[unit][1] - midx, unitpos[unit][0] - midy);
+        //context.transform(1, 0, 0, 1, -midx, -midy);
+        //context.translate(midx, midy);
+        
+        //context.rotate(r);
         draw();
+        //context.restore();
         requestAnimationFrame(render);
     }
 
