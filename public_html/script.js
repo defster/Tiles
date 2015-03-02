@@ -7,27 +7,22 @@ $(document).ready(function()
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
     $('body').on('contextmenu', "#tip", function (e){ return false; });
     
-    var gl;
     var context = canvas_draw.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    context.webkitImageSmoothingEnabled = false;
 
-    //var tipCanvas = document.getElementById("tip");
-    //var tipCtx = tipCanvas.getContext("2d");
-    
+    // Load all tiles.
     var img = new Image();
     img.src = 'tileset.png';
     
+    // Set proper client size and store rect for mouse calculations.
     context.canvas.width = context.canvas.clientWidth;
     context.canvas.height = context.canvas.clientWidth * 0.6;
     var rectCanvas = context.canvas.getBoundingClientRect();
 
-    context.imageSmoothingEnabled = false;
-    context.webkitImageSmoothingEnabled = false;
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
     
-    var scale = 1; // too soon?
-    var rotation = false;
-
     // Mouse position in worldspace.
     var mouse_x, mouse_y;
     var pMouse_x, pMouse_y;
@@ -40,19 +35,15 @@ $(document).ready(function()
     var paths = [[]];
     var speed = 2;
     var tilesize = 32;
-    var maxTilesX = ((screenX / tilesize)/scale) | 0;
-    var maxTilesY = ((screenY / tilesize)/scale) | 0;
-    var midx = ((screenX / 2)/scale) | 0;
-    var midy = ((screenY / 2)/scale) | 0;
+    var maxTilesX = screenX / tilesize | 0;
+    var maxTilesY = screenY / tilesize | 0;
+    var midx = screenX / 2 | 0;
+    var midy = screenY / 2 | 0;
 	
     var worldWidth = 128;
     var worldHeight = 128;
     var map = [[]];
     
-    // Vars for map generation.
-    //var iterations = 6;
-    //var density = 0.65;
-	
     // Create 6 random units. (name, race, job, lvl, friend/foe (0 or 1)
     for (var i = 0; i < 6; i++)
         addUnit("na", ((Math.random() * 5) + 1)|0, ((Math.random() * 6) + 1)|0, 10, 0);
@@ -70,222 +61,13 @@ $(document).ready(function()
     */
     // Unit positions in tile-space.
     var unitpos = [[]];
-    //var enemypos = [[]];
-
-    var fragmentShader = "precision mediump float;" +
-                         "varying vec4 vColor;" +
-                         "void main(void) {" +
-                         "  gl_FragColor = vColor; }";
-                      
-    var vertexShader = "attribute vec3 aVertexPosition;" +
-                       "attribute vec4 aVertexColor;" +
-                       "uniform mat4 uMVMatrix;" +
-                       "uniform mat4 uPMatrix;" +
-                       "varying vec4 vColor;" +
-                       "void main(void) {" +
-                       "  gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);" +
-                       "  vColor = aVertexColor; }";
-                                              
-    
-    var shaderProgram;
-    var mvMatrix = mat4.create();
-    var mvMatrixStack = [];
-    var pMatrix = mat4.create();
 
     initWebGL();
     initBuffers();
+    
     startup();
 
-    var rCube = 0;
-    function renderWebGL()
-    {
-        rCube = rCube + 1.0;
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-        mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [0.0, 0.0, -8.0]);
-        //mvPushMatrix();
-        mat4.rotate(mvMatrix, degToRad(rCube), [1, 1, 1]);
-        
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, cubeVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
-        gl.vertexAttribPointer(shaderProgram.vertexColorAttribute, cubeVertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-        setMatrixUniforms();
-        gl.drawElements(gl.TRIANGLES, cubeVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-        
-        //mvPopMatrix();
-        
-    }
-
-    function initWebGL()
-    {
-        try
-        {
-            var canvas;
-            canvas = document.getElementById("tip");
-            gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-            gl.canvas.width = gl.canvas.clientWidth;
-            gl.canvas.height = gl.canvas.clientWidth * 0.6;
-            gl.viewportWidth = gl.canvas.width;
-            gl.viewportHeight = gl.canvas.height;
-        } catch (e) {
-        }
-        if (!gl) {
-            console.log("Could not initialize WebGL.");
-        }
-
-        gl.clearColor(0.0, 0.0, 0.0, 1.0);
-        gl.enable(gl.DEPTH_TEST);
-        gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        
-        shaderProgram = gl.createProgram();
-        gl.attachShader(shaderProgram, getShader(gl.VERTEX_SHADER, vertexShader));
-        gl.attachShader(shaderProgram, getShader(gl.FRAGMENT_SHADER, fragmentShader));
-        gl.linkProgram(shaderProgram);
-        if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) 
-        {
-            alert("Could not initialise shaders");
-        }
-        
-        gl.useProgram(shaderProgram);
-        shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
-        gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
-        
-        shaderProgram.vertexColorAttribute = gl.getAttribLocation(shaderProgram, "aVertexColor");
-        gl.enableVertexAttribArray(shaderProgram.vertexColorAttribute);
-        
-        shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
-        shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
-        // done with shaders
-        
-    }
-        
-    function mvPushMatrix()
-    {
-        var copy = mat4.create();
-        mat4.set(mvMatrix, copy);
-        mvMatrixStack.push(copy);
-    }
-    
-    function mvPopMatrix()
-    {
-        if (mvMatrixStack.length === 0)
-            throw "Invalid popMatrix!";
-        mvMatrix = mvMatrixStack.pop();
-    }
-    
-    function getShader(type, text) 
-    {
-        var shader = gl.createShader(type);
-        gl.shaderSource(shader, text);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-            throw gl.getShaderInfoLog(shader);
-        return shader;
-    }
-        
-    function setMatrixUniforms()
-    {
-        gl.uniformMatrix4fv(shaderProgram.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(shaderProgram.mvMatrixUniform, false, mvMatrix);
-    }
-        
-    function degToRad(degrees)
-    {
-        return degrees * Math.PI / 180;
-    }
-        
-    var cubeVertexPositionBuffer;
-    var cubeVertexColorBuffer;
-    var cubeVertexIndexBuffer;
-    function initBuffers()
-    {
-        cubeVertexPositionBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexPositionBuffer);
-        var vertices = [
-            // Front face
-            -1.0, -1.0,  1.0,
-             1.0, -1.0,  1.0,
-             1.0,  1.0,  1.0,
-            -1.0,  1.0,  1.0,
-
-            // Back face
-            -1.0, -1.0, -1.0,
-            -1.0,  1.0, -1.0,
-             1.0,  1.0, -1.0,
-             1.0, -1.0, -1.0,
-
-            // Top face
-            -1.0,  1.0, -1.0,
-            -1.0,  1.0,  1.0,
-             1.0,  1.0,  1.0,
-             1.0,  1.0, -1.0,
-
-            // Bottom face
-            -1.0, -1.0, -1.0,
-             1.0, -1.0, -1.0,
-             1.0, -1.0,  1.0,
-            -1.0, -1.0,  1.0,
-
-            // Right face
-             1.0, -1.0, -1.0,
-             1.0,  1.0, -1.0,
-             1.0,  1.0,  1.0,
-             1.0, -1.0,  1.0,
-
-            // Left face
-            -1.0, -1.0, -1.0,
-            -1.0, -1.0,  1.0,
-            -1.0,  1.0,  1.0,
-            -1.0,  1.0, -1.0
-        ];
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-        cubeVertexPositionBuffer.itemSize = 3;
-        cubeVertexPositionBuffer.numItems = 24;
-        
-        cubeVertexColorBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVertexColorBuffer);
-        var colors = [
-            [1.0, 0.0, 0.0, 1.0], // Front face
-            [1.0, 1.0, 0.0, 1.0], // Back face
-            [0.0, 1.0, 0.0, 1.0], // Top face
-            [1.0, 0.5, 0.5, 1.0], // Bottom face
-            [1.0, 0.0, 1.0, 1.0], // Right face
-            [0.0, 0.0, 1.0, 1.0]  // Left face
-        ];
-        var unpackedColors = [];
-        for (var i in colors)
-        {
-            var color = colors[i];
-            for (var j = 0; j < 4; j++)
-                unpackedColors = unpackedColors.concat(color);
-        }
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(unpackedColors), gl.STATIC_DRAW);
-        cubeVertexColorBuffer.itemSize = 4;
-        cubeVertexColorBuffer.numItems = 24;
-        
-        cubeVertexIndexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, cubeVertexIndexBuffer);
-        var cubeVertexIndices = [
-            0, 1, 2,      0, 2, 3,    // Front face
-            4, 5, 6,      4, 6, 7,    // Back face
-            8, 9, 10,     8, 10, 11,  // Top face
-            12, 13, 14,   12, 14, 15, // Bottom face
-            16, 17, 18,   16, 18, 19, // Right face
-            20, 21, 22,   20, 22, 23  // Left face
-        ];
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.STATIC_DRAW);
-        cubeVertexIndexBuffer.itemSize = 1;
-        cubeVertexIndexBuffer.numItems = 36;
-    }
-        
+    // Returns ID of unit under mouse cursor position in worldspace.
     function hover()
     {
         for (var i = 0; i < units.length; i++)
@@ -293,17 +75,8 @@ $(document).ready(function()
             var xt = (unitpos[i][1] / tilesize) | 0;
             var yt = (unitpos[i][0] / tilesize) | 0;
             if (xt === mouse_x_tile && yt === mouse_y_tile)
-            {
-                //tipCanvas.style.left = (unitpos[i][1]) + midx - unitpos[unit][1] + 25 + "px";
-                //tipCanvas.style.top = (unitpos[i][0]) + midy - unitpos[unit][0] - 30 + "px";
-                //tipCtx.clearRect(0, 0, tipCanvas.width, tipCanvas.height);
-                //tipCtx.fillText(units[i].name + " [" + units[i].hp + "/" + units[i].maxhp + "]", 5, 15);
-                //console.log("hovering over unit: ", i);
                 return i;
-            }
         }
-        //tipCanvas.style.left = -800 + "px";
-        //tipCanvas.style.top = (unitpos[i][0]) + midy - unitpos[unit][0] + "px";
         return -1;
     }
 
@@ -313,19 +86,17 @@ $(document).ready(function()
         {
             currentValue.html(this.value);
         });
-        // Trigger the event on load, so
-        // the value field is populated:
         $('#defaultSlider').change();
     });
-
 
     // Place each unit in the middle of their tile.
     function create_unitpos()
     {
+        var mid = tilesize / 2;
         for (var i = 0; i < units.length; i++)
         {
-            unitpos[i][1] = ((unitpos[i][1] * tilesize) + (tilesize / 2)) | 0;
-            unitpos[i][0] = ((unitpos[i][0] * tilesize) + (tilesize / 2)) | 0;
+            unitpos[i][1] = ((unitpos[i][1] * tilesize) + mid) | 0;
+            unitpos[i][0] = ((unitpos[i][0] * tilesize) + mid) | 0;
         }
     }
 
@@ -337,9 +108,7 @@ $(document).ready(function()
             //console.log(units[u].name + " tries to attack " + units[target].name + " id[" + target + "].");
             units[u].attackCooldownMax = 180;
             units[u].attackCooldownCur = 180;
-            
             attack(u, target);
-            
         }
     }
 
@@ -347,27 +116,14 @@ $(document).ready(function()
     canvas_draw.addEventListener('mousedown', function(e)
     //$("canvas").mousedown(function (e) // This one worked on ALL canvases - not good when i had more than one.
     {
+        // r.click
         if (e.which === 3)
         {
             var hover_unit = hover();
             if (hover_unit !== -1)
-            {
-                //console.log(units[unit].name + " sets " + units[hover_unit].name + " id[" + hover_unit + "] as target.");
                 units[unit].targetUnit = hover_unit;
-            }
             else
                 units[unit].targetUnit = -1;
-            // Right-clicking initiates an attack.
-            //actAttack(unit);
-            /*
-            if (units[unit].attackCooldownCur === 0)
-            {
-                //units[unit].attackCooldownMax = ((Math.random() * 180) + 50) | 0;
-                units[unit].attackCooldownMax = 180; // 3 seconds ingame
-                units[unit].attackCooldownCur = units[unit].attackCooldownMax;
-                console.log(units[unit].name + " swings at");
-            }
-            */
             return;
         }
         else
@@ -385,10 +141,10 @@ $(document).ready(function()
                 console.log("Tile is occupied.");
             else
                 moveTo(unit, [mouse_y_tile, mouse_x_tile]);
-                //units[unit].targetUnit = -1;
         }
     }, false);
 
+    // ???
     function Select_Unit(u)
     {
         unit = u;
@@ -405,8 +161,6 @@ $(document).ready(function()
         else
         {
             paths[u] = findPath(map, start, end);
-
-            // This was previously in the keypress function.
             if (paths[u].length > 1)
             {
                 units[u].moveStep = 1;
@@ -418,17 +172,9 @@ $(document).ready(function()
 
     function updateMouse()
     {
-        var success = true;
-
         mouse_x = (pMouse_x - rectCanvas.left + unitpos[unit][1] - midx) | 0;
         mouse_y = (pMouse_y - rectCanvas.top + unitpos[unit][0] - midy) | 0;
-        if (mouse_x < 0 || mouse_y < 0)
-            success = false;
-
-        if (mouse_x >= (map[0].length * tilesize) || mouse_y >= (map.length * tilesize))
-            success = false;
-
-        if (success === false)
+        if (mouse_x < 0 || mouse_y < 0 || mouse_x >= (map[0].length * tilesize) || mouse_y >= (map.length * tilesize))
         {
             mouse_x = mouse_y = -1;
             mouse_x_tile = mouse_y_tile = -1;
@@ -442,18 +188,10 @@ $(document).ready(function()
 
     canvas_draw.addEventListener('mousemove', function(e)
     {
-        pMouse_x = e.pageX / scale;
-        pMouse_y = e.pageY / scale;
-       //console.log(e); 
-    }, false);
-
-    /*
-    $("canvas").mousemove(function (e)
-    {
         pMouse_x = e.pageX;
         pMouse_y = e.pageY;
-    });
-    */
+    }, false);
+
    function draw_unitinfo(u)
     {
         var str;
@@ -516,11 +254,8 @@ $(document).ready(function()
         context.textBaseline = "middle";
 
         for (var i = 0; i < units.length; i++)
-        {
-            //units[i].stats = {str: 0, dex: 0, vit: 0, agi: 0, intl: 0, mnd: 0, chr: 0};
-            //units[i].vitals = {maxhp: 0, hp: 0, maxmp: 0, mp: 0};
             calc_stats(i);
-        }
+
         create_unitpos();
     }
 
@@ -552,9 +287,7 @@ $(document).ready(function()
             if (units[unit].targetUnit === -1)
                 console.log(units[unit].name + " has no target.");
             else
-            {
                 actAttack(unit);
-            }
         }
     };
 
@@ -592,7 +325,6 @@ $(document).ready(function()
                     // Will be 1, or higher if diagonal movement.
                     offset = tilesize / dist[u];
 
-                    //console.log("dist: ", dist, unitpos[u][1] - xp, unitpos[u][0] - yp);
                     ux = (unitpos[u][1] - xp);
                     uy = (unitpos[u][0] - yp);
                     if (ux !== 0)
@@ -685,12 +417,6 @@ $(document).ready(function()
             {
                 drawx = (x * tilesize) + midx - posx;
                 drawy = (y * tilesize) + midy - posy;
-                
-                if (rotation)
-                {
-                    drawx -= midx;
-                    drawy -= midy;
-                }
                 
                 //if (map[y][x] > 0)
                 {
@@ -857,28 +583,28 @@ $(document).ready(function()
         }
 
         // Draw unit IDs.
+        // TODO: boundary check
         var xx, yy;
-        context.font = "12px Consolas";
-        context.fillStyle = "lightgreen";
+        //context.font = "12px Consolas";
+        //context.fillStyle = "lightgreen";
         var xt, yt;
         for (var i = 0; i < units.length; i++)
         {
             if (units[i].type === 0)
             {
-                xx = unitpos[i][1] + midx - posx;
-                yy = unitpos[i][0] + midy - posy;
-                if (rotation)
-                {
-                    xx -= midx;
-                    yy -= midy;
-                }
                 yt = 2*32;
                 xt = 1*32;
-                //context.fillText(units[i].name, xx, yy);
-                context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
             }
+            else
+            {
+                yt = 3*32;
+                xt = 7*32;
+            }
+            xx = unitpos[i][1] + midx - posx;
+            yy = unitpos[i][0] + midy - posy;
+            context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
         }
-        //context.font = "20px Consolas";
+        /*
         context.fillStyle = "lightcoral";
         for (var i = 0; i < units.length; i++)
         {
@@ -886,34 +612,12 @@ $(document).ready(function()
             {
                 xx = unitpos[i][1] + midx - posx;
                 yy = unitpos[i][0] + midy - posy;
-                if (rotation)
-                {
-                    xx -= midx;
-                    yy -= midy;
-                }
-                yt = 3*32;
-                xt = 7*32;
-                //context.fillText("@", xx, yy);
                 context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
             }
         }
-        
+        */
     }
     
-     // Funksjoner for å legge til enkelttall.
-    $("#btn_1").click(function () {
-        $("#input").val($("#input").val() + "1");
-    });
-
-    /*
-    $(function ()
-    {
-        $(".source, .target").sortable({
-            connectWith: ".connected"
-        });
-    });
-    */
-
     function attack(u1, u2)
     {
         //this.units = units;
@@ -1014,24 +718,9 @@ $(document).ready(function()
         */
     };
 
-    var rScale = 1;
     function render()
     {
-        //context.save();
-        //context.translate(screenX / 2, screenY / 2);
-        //rScale = rScale + 0.01;
-        //var r = (Math.sin(rScale));
-        //midx = (screenX/2) / r;
-        //midy = (screenY/2) / r;
-        //context.scale(r, r);
-        //context.translate(unitpos[unit][1] - midx, unitpos[unit][0] - midy);
-        //context.translate(unitpos[unit][1] - midx, unitpos[unit][0] - midy);
-        //context.transform(1, 0, 0, 1, -midx, -midy);
-        //context.translate(midx, midy);
-        
-        //context.rotate(r);
         draw();
-        //context.restore();
         requestAnimationFrame(render);
     }
 
