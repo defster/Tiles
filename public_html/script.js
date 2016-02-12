@@ -6,7 +6,7 @@ $(document).ready(function()
 {
     $('#canvas_draw').css('background-color', 'dimgrey');
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
-    $('body').on('contextmenu', "#tip", function (e){ return false; });
+    //$('body').on('contextmenu', "#tip", function (e){ return false; });
     
     var context = canvas_draw.getContext('2d');
     context.imageSmoothingEnabled = false;
@@ -21,6 +21,7 @@ $(document).ready(function()
     context.canvas.height = context.canvas.clientWidth * 0.6;
     var rectCanvas = context.canvas.getBoundingClientRect();
 
+    // Store the canvas size.
     var screenX = context.canvas.width;
     var screenY = context.canvas.height;
     
@@ -29,22 +30,32 @@ $(document).ready(function()
     var pMouse_x, pMouse_y;
     var mouse_x_tile, mouse_y_tile;
 
-    var SHADOWS = false;
-    
+    // Set them to a numeric value since they wont really be updated until the user moves the mouse-cursor for
+    // the first time. This is to avoid NaN.
+    pMouse_x = 0;
+    pMouse_y = 0;
+
     // This value will always be the index of the currently selected unit.
     var unit = 0;
     var paths = [[]];
-    var speed = 2;
-    var tilesize = 32;
-    var maxTilesX = screenX / tilesize | 0;
-    var maxTilesY = screenY / tilesize | 0;
-    var midx = screenX / 2 | 0;
-    var midy = screenY / 2 | 0;
+    var tilesize = 16;
+    var speed = (tilesize/8);
+    var maxTilesX = screenX / tilesize;
+    var maxTilesY = screenY / tilesize;
+    var midx = screenX / 2;
+    var midy = screenY / 2;
 	
-    var worldWidth = 128;
-    var worldHeight = 128;
-    var map = [[]];
+    var worldWidth = 64;
+    var worldHeight = 64;
+    //var map = [[]];
+    var map = [];
+    map.push({
+        x: 0, y: 0
+    })
     
+    var SHADOWS = false;
+    var shadowSize = (10 * tilesize) - (tilesize / 2) // 10x10 tiles
+
     // Create 6 random units. (name, race, job, lvl, friend/foe (0 or 1)
     for (var i = 0; i < 6; i++)
         addUnit("na", ((Math.random() * 5) + 1)|0, ((Math.random() * 6) + 1)|0, 10, 0);
@@ -52,29 +63,34 @@ $(document).ready(function()
     for (var i = 0; i < 20; i++)
         addUnit("Baddie"+i, ((Math.random() * 5) + 1)|0, ((Math.random() * 6) + 1)|0, 10, 1);
     
-    /*
     units[0].name = "Ghil";
     units[1].name = "Leyra";
     units[2].name = "Krelian";
     units[3].name = "Aorn";
     units[4].name = "Nyme";
     units[5].name = "Oscon";
-    */
-    // Unit positions in tile-space.
-    var unitpos = [[]];
-
-    initWebGL();
-    initBuffers();
+    
+    //initWebGL();
+    //initBuffers();
     
     startup();
+
+    function updateMainVariables()
+    {
+        speed = (tilesize/8);
+        maxTilesX = screenX / tilesize;
+        maxTilesY = screenY / tilesize;
+    }
 
     // Returns ID of unit under mouse cursor position in worldspace.
     function hover()
     {
         for (var i = 0; i < units.length; i++)
         {
-            var xt = (unitpos[i][1] / tilesize) | 0;
-            var yt = (unitpos[i][0] / tilesize) | 0;
+            //var xt = (unitpos[i][1] / tilesize) | 0;
+            //var yt = (unitpos[i][0] / tilesize) | 0;
+            var xt = (units[i].x / tilesize) | 0;
+            var yt = (units[i].y / tilesize) | 0;
             if (xt === mouse_x_tile && yt === mouse_y_tile)
                 return i;
         }
@@ -96,8 +112,10 @@ $(document).ready(function()
         var mid = tilesize / 2;
         for (var i = 0; i < units.length; i++)
         {
-            unitpos[i][1] = ((unitpos[i][1] * tilesize) + mid) | 0;
-            unitpos[i][0] = ((unitpos[i][0] * tilesize) + mid) | 0;
+            //unitpos[i][1] = ((unitpos[i][1] * tilesize) + mid) | 0;
+            //unitpos[i][0] = ((unitpos[i][0] * tilesize) + mid) | 0;
+            units[i].x = ((units[i].x * tilesize) + mid) | 0;
+            units[i].y = ((units[i].y * tilesize) + mid) | 0;
         }
     }
 
@@ -133,8 +151,10 @@ $(document).ready(function()
             var xTile, yTile;
             for (var i = 0; i < units.length; i++)
             {
-                xTile = (unitpos[i][1] / tilesize) | 0;
-                yTile = (unitpos[i][0] / tilesize) | 0;
+                //xTile = (unitpos[i][1] / tilesize) | 0;
+                //yTile = (unitpos[i][0] / tilesize) | 0;
+                xTile = (units[i].x / tilesize) | 0;
+                yTile = (units[i].y / tilesize) | 0;
                 if (yTile === mouse_y_tile && xTile === mouse_x_tile)
                     tileNotEmpty = true;
             }
@@ -155,12 +175,14 @@ $(document).ready(function()
     function moveTo(u, end)
     {
         // Find the tile our chosen unit is standing on.
-        var start = [(unitpos[u][0] / tilesize) | 0, (unitpos[u][1] / tilesize) | 0];
+        //var start = [(unitpos[u][0] / tilesize) | 0, (unitpos[u][1] / tilesize) | 0];
+        var start = [(units[u].y / tilesize) | 0, (units[u].x / tilesize) | 0];
 
         if (units[u].isMoving)
             units[u].initStop = true;
         else
         {
+            // Use A* to find a path
             paths[u] = findPath(map, start, end);
             if (paths[u].length > 1)
             {
@@ -173,8 +195,15 @@ $(document).ready(function()
 
     function updateMouse()
     {
-        mouse_x = (pMouse_x - rectCanvas.left + unitpos[unit][1] - midx) | 0;
-        mouse_y = (pMouse_y - rectCanvas.top + unitpos[unit][0] - midy) | 0;
+        // Mouse coordinates in canvas-space
+        var mousePosX = pMouse_x - rectCanvas.left;
+        var mousePosY = pMouse_y - rectCanvas.top;
+        
+        // Mouse position in relative canvas-space => worldspace
+        //mouse_x = (pMouse_x - rectCanvas.left + unitpos[unit][1] - midx) | 0;
+        //mouse_y = (pMouse_y - rectCanvas.top + unitpos[unit][0] - midy) | 0;
+        mouse_x = (pMouse_x - rectCanvas.left + units[unit].x - midx) | 0;
+        mouse_y = (pMouse_y - rectCanvas.top + units[unit].y - midy) | 0;
         if (mouse_x < 0 || mouse_y < 0 || mouse_x >= (map[0].length * tilesize) || mouse_y >= (map.length * tilesize))
         {
             mouse_x = mouse_y = -1;
@@ -185,6 +214,12 @@ $(document).ready(function()
             mouse_x_tile = (mouse_x / tilesize) | 0;
             mouse_y_tile = (mouse_y / tilesize) | 0;
         }
+        
+        // Write output
+        var str = "xpos: " + mouse_x + ", ypos: " + mouse_y;
+        str = str + "<br>xtile: " + mouse_x_tile + ", ytile: " + mouse_y_tile;
+        str = str + "<br>canvasMouseX: " + mousePosX + ", canvasMouseY: " + mousePosY;
+        $("#debuginfo").html(str);
     }
 
     canvas_draw.addEventListener('mousemove', function(e)
@@ -199,7 +234,7 @@ $(document).ready(function()
         str = units[u].name + ", Lv." + units[u].lvl;
         str += " " + racenames[units[u].race];
         str += " " + jobnames[units[u].job].toUpperCase();
-        /*
+        
         str += ", Exp " + units[u].exp + "<br><br>";
         str += "hp " + units[u].maxhp + "/" + units[u].hp + "<br>";
         str += "mp " + units[u].maxmp + "/" + units[u].mp + "<br><br>";
@@ -219,7 +254,7 @@ $(document).ready(function()
         str += "feet...: ---<br>";
         str += "rring..: ---<br>";
         str += "lring..: ---<br><br>";
-        */
+        
         str += "<br>atk cd: " + units[u].attackCooldownCur + "/" + units[0].attackCooldownMax + "<br>";
         if (units[u].targetUnit !== -1)
             str += "target_id: " + units[u].targetUnit;
@@ -233,19 +268,23 @@ $(document).ready(function()
         var isGood;
         for (var i = 0; i < units.length; i++)
         {
-            unitpos[i] = [];
+            //unitpos[i] = [];
             do
             {
                 isGood = 1;
                 // 40 is hardcoded. Remember, it must be less than worldsize.
-                unitpos[i][1] = ((Math.random() * 40) + 4) | 0;
-                unitpos[i][0] = ((Math.random() * 40) + 4) | 0;
+                //unitpos[i][1] = ((Math.random() * 40) + 4) | 0;
+                //unitpos[i][0] = ((Math.random() * 40) + 4) | 0;
+                units[i].x = ((Math.random() * 40) + 4) | 0;
+                units[i].y = ((Math.random() * 40) + 4) | 0;
 
-                if (map[ unitpos[i][0] ][ unitpos[i][1] ] !== 0)
+                //if (map[ unitpos[i][0] ][ unitpos[i][1] ] !== 0)
+                if (map[ units[i].y ][ units[i].x ] !== 0)
                     isGood = -1;
                 else
                     for (var j = 0; j < i; j++)
-                        if (unitpos[i][1] === unitpos[j][1] && unitpos[i][0] === unitpos[j][0])
+                        //if (unitpos[i][1] === unitpos[j][1] && unitpos[i][0] === unitpos[j][0])
+                        if (units[i].x === units[j].x && units[i].y === units[j].y)
                             isGood = -1;
 
             } while (isGood === -1);
@@ -270,7 +309,8 @@ $(document).ready(function()
 
         placeUnits ();
 
-        draw_unitinfo(0);
+        // SHOULD BE ON
+        //draw_unitinfo(0);
     }
 
     // Change selected using through keyboard 1-6.
@@ -321,19 +361,24 @@ $(document).ready(function()
                 offset = 1;
                 if (units[u].moveCounter === 0)
                 {
-                    dist[u] = Math.sqrt(Math.pow(xp - unitpos[u][1], 2) + Math.pow(yp - unitpos[u][0], 2));
+                    //dist[u] = Math.sqrt(Math.pow(xp - unitpos[u][1], 2) + Math.pow(yp - unitpos[u][0], 2));
+                    dist[u] = Math.sqrt(Math.pow(xp - units[u].x, 2) + Math.pow(yp - units[u].y, 2));
 
                     // Will be 1, or higher if diagonal movement.
                     offset = tilesize / dist[u];
 
-                    ux = (unitpos[u][1] - xp);
-                    uy = (unitpos[u][0] - yp);
+                    //ux = (unitpos[u][1] - xp);
+                    //uy = (unitpos[u][0] - yp);
+                    ux = (units[u].x - xp);
+                    uy = (units[u].y - yp);
                     if (ux !== 0)
-                        deltax[u] = dist[u] / (unitpos[u][1] - xp);
+                        //deltax[u] = dist[u] / (unitpos[u][1] - xp);
+                        deltax[u] = dist[u] / (units[u].x - xp);
                     else
                         deltax[u] = 0;
                     if (uy !== 0)
-                        deltay[u] = dist[u] / (unitpos[u][0] - yp);
+                        //deltay[u] = dist[u] / (unitpos[u][0] - yp);
+                        deltay[u] = dist[u] / (units[u].y - yp);
                     else
                         deltay[u] = 0;
 
@@ -351,8 +396,10 @@ $(document).ready(function()
                 }
 
                 // Here we assume there will be constant movement, ie. not check if deltas actually have values.
-                unitpos[u][1] -= deltax[u];
-                unitpos[u][0] -= deltay[u];
+                //unitpos[u][1] -= deltax[u];
+                //unitpos[u][0] -= deltay[u];
+                units[u].x -= deltax[u];
+                units[u].y -= deltay[u];
                 units[u].moveCounter += speed;
 
                 // Should compare to distance when i move out of tile-only movement.
@@ -376,22 +423,29 @@ $(document).ready(function()
 
     function draw()
     {
-        renderWebGL();
+        //renderWebGL();
         
         hover ();
 
         draw_unitinfo(unit);
 
-        var posx = unitpos[unit][1];
-        var posy = unitpos[unit][0];
+        // Pixel position for current unit.
+        //var posx = unitpos[unit][1];
+        //var posy = unitpos[unit][0];
+        var posx = units[unit].x;
+        var posy = units[unit].y;
 
-        var posx_tile = (unitpos[unit][1] / tilesize) | 0;
-        var posy_tile = (unitpos[unit][0] / tilesize) | 0;
+        // Which tile the unit is on.
+        //var posx_tile = (unitpos[unit][1] / tilesize) | 0;
+        //var posy_tile = (unitpos[unit][0] / tilesize) | 0;
+        var posx_tile = (units[unit].x / tilesize) | 0;
+        var posy_tile = (units[unit].y / tilesize) | 0;
 
         update_movement();
         updateMouse();
 
         // Clear the canvas
+        //context.fillStyle = "#123456";
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
         // Limit drawing to what will actually be on screen.
@@ -409,7 +463,7 @@ $(document).ready(function()
         if (endx >= map[0].length) endx = map[0].length - 1;
 
         // Draw all visible tiles.
-        context.fillStyle = "#bbbbbb";
+        //context.fillStyle = "#bbbbbb";
         var drawx, drawy;
         var tilesetX, tilesetY;
         for (var y = starty; y < endy; y++)
@@ -422,29 +476,34 @@ $(document).ready(function()
                 //if (map[y][x] > 0)
                 {
                     
+                    //if (map[y][x] === 2 || map[y][x] === 1)
                     if (map[y][x] === 2 || map[y][x] === 1)
                     {
-                        tilesetX = 0*32;
-                        tilesetY = 14*32;
-                        //context.fillStyle = "#bbbbbb";
+                        //tilesetX = 0*32;
+                        //tilesetY = 14*32;
+                        //context.fillStyle = "#aaaaaa";
+                        context.fillRect(drawx, drawy, tilesize, tilesize);
+
                     }
                     /*
                     if (map[y][x] === 1)
                     {
-                        tilesetX = 8*32;
-                        tilesetY = 13*32;
+                        //tilesetX = 8*32;
+                        //tilesetY = 13*32;
+                        context.fillStyle = "#dddddd";
                     }
                     */
+                   /*
                     if (map[y][x] === 0)
                     {
-                        tilesetX = 55*32;
-                        tilesetY = 14*32;
+                        //tilesetX = 55*32;
+                        //tilesetY = 14*32;
+                        context.fillStyle = "#888888";
                     }
-                        //context.fillStyle = "#aa9999";
-                    
+                    */
                     //context.fillRect(drawx, drawy, tilesize, tilesize);
                     //if (map[y][x] !== 1)
-                        context.drawImage(img, tilesetX, tilesetY, 32, 32, drawx, drawy, tilesize, tilesize);
+                        //context.drawImage(img, tilesetX, tilesetY, 32, 32, drawx, drawy, tilesize, tilesize);
                 }
             }
         }
@@ -459,7 +518,7 @@ $(document).ready(function()
 
             var px = unitpos[unit][1] + midx - posx;
             var py = unitpos[unit][0] + midy - posy;
-            var endpoints = getShadowEndpoints(edges, px, py, screenX, screenY, tilesize);
+            var endpoints = getShadowEndpoints(edges, px, py, tilesize, shadowSize);
             // Draw filled shadowvolume
             context.beginPath();
             //context.strokeStyle = "#00ff00";
@@ -468,16 +527,16 @@ $(document).ready(function()
             for (var i = 0; i < endpoints.length; i++)
                 context.lineTo(endpoints[i][0], endpoints[i][1]);
 
-            context.globalCompositeOperation = "screen";
-            var rad2 = 300;
-            var grd = context.createRadialGradient(screenX/2, screenY/2, 5, screenX/2, screenY/2, rad2);
-            grd.addColorStop(0,"grey");
-            grd.addColorStop(1,"black");
-            context.fillStyle = grd;
-            //context.fillStyle = "grey";
+            //context.globalCompositeOperation = "screen";
+            //var rad2 = 100;
+            //var grd = context.createRadialGradient(screenX/2, screenY/2, 5, screenX/2, screenY/2, rad2);
+            //grd.addColorStop(0,"grey");
+            //grd.addColorStop(1,"black");
+            //context.fillStyle = grd;
+            context.fillStyle = "grey";
             context.closePath();
             context.fill();
-            context.globalCompositeOperation = "source-over";
+            //context.globalCompositeOperation = "source-over";
         }
         
  
@@ -500,8 +559,10 @@ $(document).ready(function()
             //if (units[i].type === 0)
             {
                 // Check if unit is ON-SCREEN
-                xx = unitpos[i][1] + midx - posx;
-                yy = unitpos[i][0] + midy - posy;
+                //xx = unitpos[i][1] + midx - posx;
+                //yy = unitpos[i][0] + midy - posy;
+                xx = units[i].x + midx - posx;
+                yy = units[i].y + midy - posy;
                 //context.rect(xx, yy - 30, 100, 15);
                 var mx = 100; // base
 
@@ -566,8 +627,10 @@ $(document).ready(function()
         // Draw circle on current UNIT
         context.beginPath();
         context.strokeStyle = "#00ff00";
-        xx = unitpos[unit][1] + midx - posx;
-        yy = unitpos[unit][0] + midy - posy;
+        //xx = unitpos[unit][1] + midx - posx;
+        //yy = unitpos[unit][0] + midy - posy;
+        xx = units[unit].x + midx - posx;
+        yy = units[unit].y + midy - posy;
         context.arc(xx, yy, tilesize/2, 0, Math.PI*2);
         context.stroke();
 
@@ -577,8 +640,10 @@ $(document).ready(function()
         {
             context.strokeStyle = "#ff0000";
             context.beginPath();
-            xx = unitpos[tar][1] + midx - posx;
-            yy = unitpos[tar][0] + midy - posy;
+            //xx = unitpos[tar][1] + midx - posx;
+            //yy = unitpos[tar][0] + midy - posy;
+            xx = units[tar].x + midx - posx;
+            yy = units[tar].y + midy - posy;
             context.arc(xx, yy, tilesize/2, 0, Math.PI * 2);
             context.stroke();
         }
@@ -601,8 +666,10 @@ $(document).ready(function()
                 yt = 3*32;
                 xt = 7*32;
             }
-            xx = unitpos[i][1] + midx - posx;
-            yy = unitpos[i][0] + midy - posy;
+            //xx = unitpos[i][1] + midx - posx;
+            //yy = unitpos[i][0] + midy - posy;
+            xx = units[i].x + midx - posx;
+            yy = units[i].y + midy - posy;
             context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
         }
         /*
@@ -648,26 +715,29 @@ $(document).ready(function()
             //console.log(units[u1].name + " swings at " + units[u2].name + ", but misses.");
             
     }
-
-    window.setInterval(function randMovement()
+ 
+    window.setInterval(function rndMovement()
     {
-        /*
+        
         var c = [0, 0];
 
-        for (var i = 0; i < 6; i++)
+        for (var i = 0; i < units.length; i++)
         {
+            if (i !== unit)
+            {    
             c = findRandomCell();
 
             // move unit 0 to c.
             if (!units[i].isMoving)
                 moveTo(i, c);
+            }
         }
-        */
+        
         //console.log("cell: ", c[0], c[1]);
-    }, 1000);
+    }, 1000)
 
     // Returns x, y location of an empty cell. 
-    /*
+    
     function findRandomCell()
     {
         var x, y;
@@ -685,7 +755,7 @@ $(document).ready(function()
  
         return [x, y];
     }
-    */
+    
     // Creates a html table using unit data. Should change this to bootstrap instead, so only single
     // values need to be updated.
     function update_party()
@@ -693,30 +763,31 @@ $(document).ready(function()
         // fill datatable
         var r = [];
         var j = -1;
-        /*
-        r[++j] = "<br><tr class='bg-primary'><td>#</td><td>Character Name</td><td>MaxHP</td><td>HP</td><td>MaxMP</td><td>MP</td><td>Job</td></tr>";
+        
+        r[++j] = "<tr class='bg-primary'><td>#</td><td>Character Name</td><td>MaxHP</td><td>HP</td><td>MaxMP</td><td>MP</td><td>Job</td></tr>";
         for (i = 0; i < 6; i++)
         {
             r[++j] = "<tr><td>" + (i + 1) + "</td><td>";
             r[++j] = units[i].name;
             r[++j] = "</td><td>";
-            r[++j] = units[i].vitals['maxhp'];
+            r[++j] = units[i].maxhp;
             r[++j] = "</td><td>";
-            r[++j] = units[i].vitals['hp'];
-            if (i === 3)
+            r[++j] = units[i].hp;
+            if (i === unit)
                 r[++j] = "</td><td class=\"danger\">";
             else
                 r[++j] = "</td><td>";
 
-            r[++j] = units[i].vitals['maxmp'];
+            r[++j] = units[i].maxmp;
             r[++j] = "</td><td>";
-            r[++j] = units[i].vitals['mp'];
+            r[++j] = units[i].mp;
             r[++j] = "</td><td>";
             r[++j] = jobnames[units[i].job];
             r[++j] = "</td></tr>";
+            
         }
         $("#datatable").html(r.join(''));
-        */
+        
     };
 
     function render()
