@@ -4,21 +4,31 @@
 
 $(document).ready(function()
 {
-    $('#canvas_draw').css('background-color', 'dimgrey');
+    $('#canvas_draw').css('background-color', '#444444');
     $('body').on('contextmenu', "#canvas_draw", function (e){ return false; });
     //$('body').on('contextmenu', "#tip", function (e){ return false; });
     
     var context = canvas_draw.getContext('2d');
-    context.imageSmoothingEnabled = false;
-    context.webkitImageSmoothingEnabled = false;
 
     // Load all tiles.
-    var img = new Image();
-    img.src = 'tileset.png';
+    //var img = new Image();
+    //img.src = 'tileset.png';
+    
+    $('#canvas_draw').attr({width:922,height:533});
+    $('#canvas_draw').css('width', '922px');
+    $('#canvas_draw').css('height', '553px');
     
     // Set proper client size and store rect for mouse calculations.
     context.canvas.width = context.canvas.clientWidth;
-    context.canvas.height = context.canvas.clientWidth * 0.6;
+    //context.canvas.height = context.canvas.clientWidth * 0.6;
+    context.canvas.height = context.canvas.clientHeight;
+    
+    context.mozImageSmoothingEnabled = false;
+    //context.webkitImageSmoothingEnabled = false;
+    context.msImageSmoothingEnabled = false;
+    context.imageSmoothingEnabled = false;
+ 
+    // Used to subtract from mouse coords to get coords relative to the canvas only.
     var rectCanvas = context.canvas.getBoundingClientRect();
 
     // Store the canvas size.
@@ -26,6 +36,7 @@ $(document).ready(function()
     var screenY = context.canvas.height;
     
     // Mouse position in worldspace.
+    var mousePosX, mousePosY;
     var mouse_x, mouse_y;
     var pMouse_x, pMouse_y;
     var mouse_x_tile, mouse_y_tile;
@@ -37,24 +48,25 @@ $(document).ready(function()
 
     // This value will always be the index of the currently selected unit.
     var unit = 0;
+    
+    // Used for each units A* path
     var paths = [[]];
-    var tilesize = 16;
+    var tilesize = 32;
     var speed = (tilesize/8);
-    var maxTilesX = screenX / tilesize;
-    var maxTilesY = screenY / tilesize;
-    var midx = screenX / 2;
-    var midy = screenY / 2;
+    var maxTilesX = (screenX / tilesize) | 0;
+    var maxTilesY = (screenY / tilesize) | 0;
+    var midx = (screenX / 2) | 0;
+    var midy = (screenY / 2) | 0;
 	
     var worldWidth = 64;
     var worldHeight = 64;
-    //var map = [[]];
+
     var map = [];
-    map.push({
-        x: 0, y: 0
-    })
+    map.push({ x: 0, y: 0 });
     
     var SHADOWS = false;
-    var shadowSize = (10 * tilesize) - (tilesize / 2) // 10x10 tiles
+    var shadowTileSize = 15;
+    var shadowSize = (shadowTileSize * tilesize) - (tilesize / 2) // 10x10 tiles
 
     // Create 6 random units. (name, race, job, lvl, friend/foe (0 or 1)
     for (var i = 0; i < 6; i++)
@@ -75,6 +87,7 @@ $(document).ready(function()
     
     startup();
 
+    // To be used when tilesize is variable (which is unlikely to ever happen..)
     function updateMainVariables()
     {
         speed = (tilesize/8);
@@ -82,41 +95,13 @@ $(document).ready(function()
         maxTilesY = screenY / tilesize;
     }
 
-    // Returns ID of unit under mouse cursor position in worldspace.
+    // Get ID of unit under mouse cursor position in worldspace.
     function hover()
     {
         for (var i = 0; i < units.length; i++)
-        {
-            //var xt = (unitpos[i][1] / tilesize) | 0;
-            //var yt = (unitpos[i][0] / tilesize) | 0;
-            var xt = (units[i].x / tilesize) | 0;
-            var yt = (units[i].y / tilesize) | 0;
-            if (xt === mouse_x_tile && yt === mouse_y_tile)
+            if (units[i].xTile === mouse_x_tile && units[i].yTile === mouse_y_tile)
                 return i;
-        }
         return -1;
-    }
-
-    $(function () {
-        var currentValue = $('#currentValue');
-        $('#defaultSlider').change(function () 
-        {
-            currentValue.html(this.value);
-        });
-        $('#defaultSlider').change();
-    });
-
-    // Place each unit in the middle of their tile.
-    function create_unitpos()
-    {
-        var mid = tilesize / 2;
-        for (var i = 0; i < units.length; i++)
-        {
-            //unitpos[i][1] = ((unitpos[i][1] * tilesize) + mid) | 0;
-            //unitpos[i][0] = ((unitpos[i][0] * tilesize) + mid) | 0;
-            units[i].x = ((units[i].x * tilesize) + mid) | 0;
-            units[i].y = ((units[i].y * tilesize) + mid) | 0;
-        }
     }
 
     function actAttack(u)
@@ -130,11 +115,20 @@ $(document).ready(function()
             attack(u, target);
         }
     }
-
+$('div').on('mousedown mouseup', function mouseState(e) {
+    if (e.type == "mousedown") {
+        {
+        }
+        //code triggers on hold
+        //console.log("hold");
+        
+    }
+});
     // Clicking mouse on a tile creates a A* path for the selected unit.
     canvas_draw.addEventListener('mousedown', function(e)
     //$("canvas").mousedown(function (e) // This one worked on ALL canvases - not good when i had more than one.
     {
+        var tileNotEmpty, i;
         // r.click
         if (e.which === 3)
         {
@@ -147,36 +141,71 @@ $(document).ready(function()
         }
         else
         {
-            var tileNotEmpty = false;
-            var xTile, yTile;
-            for (var i = 0; i < units.length; i++)
-            {
-                //xTile = (unitpos[i][1] / tilesize) | 0;
-                //yTile = (unitpos[i][0] / tilesize) | 0;
-                xTile = (units[i].x / tilesize) | 0;
-                yTile = (units[i].y / tilesize) | 0;
-                if (yTile === mouse_y_tile && xTile === mouse_x_tile)
+            // If user l.clicks anywhere, the unit starts moving that direction.
+            units[unit].isMoving = true;
+            units[unit].stepstaken = 0;
+            units[unit].startx = units[unit].x;
+            units[unit].starty = units[unit].y;
+            units[unit].endx = mouse_x;
+            units[unit].endy = mouse_y;
+            /*
+            tileNotEmpty = false;
+            for (i = 0; i < units.length; i++)
+                if (units[i].yTile === mouse_y_tile && units[i].xTile === mouse_x_tile)
                     tileNotEmpty = true;
-            }
             if (tileNotEmpty)
                 console.log("Tile is occupied.");
             else
                 moveTo(unit, [mouse_y_tile, mouse_x_tile]);
+                */
         }
     }, false);
 
-    // ???
-    function Select_Unit(u)
+    function moveTo2(u)
     {
-        unit = u;
-        draw_unitinfo(unit);
+        var dist = Math.sqrt(Math.pow(units[u].endx - units[u].startx, 2) + Math.pow(units[u].endy - units[u].starty, 2));
+        
+        var distx = units[u].startx - units[u].endx;
+        var disty = units[u].starty - units[u].endy;
+    
+        var speed = 1;
+    
+        var stepx = (distx / dist) * speed;
+        var stepy = (disty / dist) * speed;
+        var stepsneeded = distx / stepx;
+        
+        
+        units[u].x -= stepx;
+        units[u].y -= stepy;
+        units[u].stepstaken++;
+
+        // This should be consolidated somewhere.
+        units[u].xTile = (units[u].x / tilesize) | 0;
+        units[u].yTile = (units[u].y / tilesize) | 0;
+        
+        if (units[u].stepstaken > stepsneeded)
+        {
+            units[u].x = units[u].x | 0;
+            units[u].y = units[u].y | 0;
+            units[u].isMoving = false;
+        }
+    }
+
+    function updateMovement2()
+    {
+        for (var i = 0; i < 6; i++)
+        {
+            if (units[i].isMoving)
+            {
+                moveTo2(i);
+            }
+        }
     }
 
     function moveTo(u, end)
     {
         // Find the tile our chosen unit is standing on.
-        //var start = [(unitpos[u][0] / tilesize) | 0, (unitpos[u][1] / tilesize) | 0];
-        var start = [(units[u].y / tilesize) | 0, (units[u].x / tilesize) | 0];
+        var start = [units[u].yTile, units[u].xTile];
 
         if (units[u].isMoving)
             units[u].initStop = true;
@@ -196,12 +225,10 @@ $(document).ready(function()
     function updateMouse()
     {
         // Mouse coordinates in canvas-space
-        var mousePosX = pMouse_x - rectCanvas.left;
-        var mousePosY = pMouse_y - rectCanvas.top;
+        mousePosX = pMouse_x - rectCanvas.left;
+        mousePosY = pMouse_y - rectCanvas.top;
         
         // Mouse position in relative canvas-space => worldspace
-        //mouse_x = (pMouse_x - rectCanvas.left + unitpos[unit][1] - midx) | 0;
-        //mouse_y = (pMouse_y - rectCanvas.top + unitpos[unit][0] - midy) | 0;
         mouse_x = (pMouse_x - rectCanvas.left + units[unit].x - midx) | 0;
         mouse_y = (pMouse_y - rectCanvas.top + units[unit].y - midy) | 0;
         if (mouse_x < 0 || mouse_y < 0 || mouse_x >= (map[0].length * tilesize) || mouse_y >= (map.length * tilesize))
@@ -219,6 +246,8 @@ $(document).ready(function()
         var str = "xpos: " + mouse_x + ", ypos: " + mouse_y;
         str = str + "<br>xtile: " + mouse_x_tile + ", ytile: " + mouse_y_tile;
         str = str + "<br>canvasMouseX: " + mousePosX + ", canvasMouseY: " + mousePosY;
+        str = str + "<br>" + context.canvas.width + ", " + context.canvas.height;
+        str = str + "<br>ux: " + units[unit].x + ", uy: " + units[unit].y;
         $("#debuginfo").html(str);
     }
 
@@ -228,53 +257,16 @@ $(document).ready(function()
         pMouse_y = e.pageY;
     }, false);
 
-   function draw_unitinfo(u)
-    {
-        var str;
-        str = units[u].name + ", Lv." + units[u].lvl;
-        str += " " + racenames[units[u].race];
-        str += " " + jobnames[units[u].job].toUpperCase();
-        
-        str += ", Exp " + units[u].exp + "<br><br>";
-        str += "hp " + units[u].maxhp + "/" + units[u].hp + "<br>";
-        str += "mp " + units[u].maxmp + "/" + units[u].mp + "<br><br>";
-        str += "str: " + units[u].str + ", dex: " + units[u].dex + ", vit: " + units[u].vit + "<br>";
-        str = str + "agi: " + units[u].agi + ", int: " + units[u].int + ", mnd: " + units[u].mnd;
-        str = str + ", chr: " + units[u].chr;
-
-        str = str + "<br><br>";
-        str = str + "attack: " + units[u].attack + ", defense: " + units[u].defense + "<br>";
-        str = str + "accuracy: " + units[u].accuracy + ", evasion: " + units[u].evasion;
-        
-        str += "<br><br>";
-        str += "head...: ---<br>";
-        str += "chest..: ---<br>";
-        str += "weapon.: ---<br>";
-        str += "shield.: ---<br>";
-        str += "feet...: ---<br>";
-        str += "rring..: ---<br>";
-        str += "lring..: ---<br><br>";
-        
-        str += "<br>atk cd: " + units[u].attackCooldownCur + "/" + units[0].attackCooldownMax + "<br>";
-        if (units[u].targetUnit !== -1)
-            str += "target_id: " + units[u].targetUnit;
-
-        $("#unitinfo").html(str);
-    }
-
     function placeUnits()
     {
         // Place units and enemies on valid tiles.
         var isGood;
         for (var i = 0; i < units.length; i++)
         {
-            //unitpos[i] = [];
             do
             {
                 isGood = 1;
                 // 40 is hardcoded. Remember, it must be less than worldsize.
-                //unitpos[i][1] = ((Math.random() * 40) + 4) | 0;
-                //unitpos[i][0] = ((Math.random() * 40) + 4) | 0;
                 units[i].x = ((Math.random() * 40) + 4) | 0;
                 units[i].y = ((Math.random() * 40) + 4) | 0;
 
@@ -283,23 +275,26 @@ $(document).ready(function()
                     isGood = -1;
                 else
                     for (var j = 0; j < i; j++)
-                        //if (unitpos[i][1] === unitpos[j][1] && unitpos[i][0] === unitpos[j][0])
                         if (units[i].x === units[j].x && units[i].y === units[j].y)
                             isGood = -1;
 
             } while (isGood === -1);
         }
 
-        context.textAlign = "center";
-        context.textBaseline = "middle";
-
         for (var i = 0; i < units.length; i++)
             calc_stats(i);
 
-        create_unitpos();
+        var mid = tilesize / 2;
+        for (var i = 0; i < units.length; i++)
+        {
+            units[i].x = ((units[i].x * tilesize) + mid);
+            units[i].y = ((units[i].y * tilesize) + mid);
+            units[i].xTile = (units[i].x / tilesize) | 0;
+            units[i].yTile = (units[i].y / tilesize) | 0;
+        }
     }
 
-    function rand()
+    function createMap()
     {
         map = createWorld(map, worldWidth, worldHeight);
 
@@ -313,30 +308,11 @@ $(document).ready(function()
         //draw_unitinfo(0);
     }
 
-    // Change selected using through keyboard 1-6.
-    window.onkeypress = function (event)
-    {
-        var key = event.keyCode;
-        if (event.keyCode > 48 && event.keyCode < 55)
-        {
-            unit = event.keyCode - 49;
-            draw_unitinfo(unit);
-        }
-        
-        if (key === 97)
-        {
-            if (units[unit].targetUnit === -1)
-                console.log(units[unit].name + " has no target.");
-            else
-                actAttack(unit);
-        }
-    };
-
     // ---------------
     // MOVEMENT
     // ---------------
     var dist = [], deltax = [], deltay = [];
-    function update_movement()
+    function updateMovement()
     {
         // For now, assume 'path' remains untouched during movement. 
         // TODO: a) detach from tiles, b) support for 'speed'
@@ -361,23 +337,18 @@ $(document).ready(function()
                 offset = 1;
                 if (units[u].moveCounter === 0)
                 {
-                    //dist[u] = Math.sqrt(Math.pow(xp - unitpos[u][1], 2) + Math.pow(yp - unitpos[u][0], 2));
                     dist[u] = Math.sqrt(Math.pow(xp - units[u].x, 2) + Math.pow(yp - units[u].y, 2));
 
                     // Will be 1, or higher if diagonal movement.
                     offset = tilesize / dist[u];
 
-                    //ux = (unitpos[u][1] - xp);
-                    //uy = (unitpos[u][0] - yp);
                     ux = (units[u].x - xp);
                     uy = (units[u].y - yp);
                     if (ux !== 0)
-                        //deltax[u] = dist[u] / (unitpos[u][1] - xp);
                         deltax[u] = dist[u] / (units[u].x - xp);
                     else
                         deltax[u] = 0;
                     if (uy !== 0)
-                        //deltay[u] = dist[u] / (unitpos[u][0] - yp);
                         deltay[u] = dist[u] / (units[u].y - yp);
                     else
                         deltay[u] = 0;
@@ -396,11 +367,11 @@ $(document).ready(function()
                 }
 
                 // Here we assume there will be constant movement, ie. not check if deltas actually have values.
-                //unitpos[u][1] -= deltax[u];
-                //unitpos[u][0] -= deltay[u];
                 units[u].x -= deltax[u];
                 units[u].y -= deltay[u];
                 units[u].moveCounter += speed;
+                units[u].xTile = (units[u].x / tilesize) | 0;
+                units[u].yTile = (units[u].y / tilesize) | 0;
 
                 // Should compare to distance when i move out of tile-only movement.
                 if (units[u].moveCounter >= tilesize)
@@ -427,35 +398,28 @@ $(document).ready(function()
         
         hover ();
 
-        draw_unitinfo(unit);
-
-        // Pixel position for current unit.
-        //var posx = unitpos[unit][1];
-        //var posy = unitpos[unit][0];
-        var posx = units[unit].x;
-        var posy = units[unit].y;
-
-        // Which tile the unit is on.
-        //var posx_tile = (unitpos[unit][1] / tilesize) | 0;
-        //var posy_tile = (unitpos[unit][0] / tilesize) | 0;
-        var posx_tile = (units[unit].x / tilesize) | 0;
-        var posy_tile = (units[unit].y / tilesize) | 0;
-
-        update_movement();
         updateMouse();
+        updateMovement2();
+
+        // Store positions in vars to avoid constant array lookups.
+        var posx = units[unit].x | 0;
+        var posy = units[unit].y | 0;
+        var posx_tile = units[unit].xTile;
+        var posy_tile = units[unit].yTile;
+
+        //updateMovement();
 
         // Clear the canvas
-        //context.fillStyle = "#123456";
         context.clearRect(0, 0, context.canvas.width, context.canvas.height);
 
         // Limit drawing to what will actually be on screen.
-        var maxx = (((screenX / tilesize) / 2) | 0) + 2;
-        var maxy = (((screenY / tilesize) / 2) | 0) + 2;
+        var maxNumTilesX = (((screenX / tilesize) / 2) | 0) + 2;
+        var maxNumTilesY = (((screenY / tilesize) / 2) | 0) + 2;
 
-        var starty = posy_tile - maxy;
-        var startx = posx_tile - maxx;
-        var endy = posy_tile + maxy;
-        var endx = posx_tile + maxx;
+        var starty = posy_tile - maxNumTilesY;
+        var startx = posx_tile - maxNumTilesX;
+        var endy = posy_tile + maxNumTilesY;
+        var endx = posx_tile + maxNumTilesX;
 
         if (starty < 0) starty = 0;
         if (startx < 0) startx = 0;
@@ -466,172 +430,121 @@ $(document).ready(function()
         //context.fillStyle = "#bbbbbb";
         var drawx, drawy;
         var tilesetX, tilesetY;
+        
+        // DUMMY
+        var tre = tilesize / 3;
+        context.fillStyle = "#777777";
         for (var y = starty; y < endy; y++)
-        {
             for (var x = startx; x < endx; x++)
             {
+                // Upper left coordiantes for each block.
                 drawx = (x * tilesize) + midx - posx;
                 drawy = (y * tilesize) + midy - posy;
-                
-                //if (map[y][x] > 0)
-                {
-                    
-                    //if (map[y][x] === 2 || map[y][x] === 1)
-                    if (map[y][x] === 2 || map[y][x] === 1)
-                    {
-                        //tilesetX = 0*32;
-                        //tilesetY = 14*32;
-                        //context.fillStyle = "#aaaaaa";
-                        context.fillRect(drawx, drawy, tilesize, tilesize);
-
-                    }
-                    /*
-                    if (map[y][x] === 1)
-                    {
-                        //tilesetX = 8*32;
-                        //tilesetY = 13*32;
-                        context.fillStyle = "#dddddd";
-                    }
-                    */
-                   /*
-                    if (map[y][x] === 0)
-                    {
-                        //tilesetX = 55*32;
-                        //tilesetY = 14*32;
-                        context.fillStyle = "#888888";
-                    }
-                    */
-                    //context.fillRect(drawx, drawy, tilesize, tilesize);
-                    //if (map[y][x] !== 1)
-                        //context.drawImage(img, tilesetX, tilesetY, 32, 32, drawx, drawy, tilesize, tilesize);
-                }
+                if (map[y][x] > 0)
+                    context.fillRect(drawx, drawy, tilesize, tilesize);
             }
-        }
         
         // SHADOWMAPPING
         // Get a list of all surrounding walls ('2') from current unit tile.
         if (SHADOWS)
         {
-            var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
-            //var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) - 3, ((maxTilesY / 2) | 0) - 3);
-            var edges = getEdges(map, n, midx - posx, midy - posy, tilesize);
+            //var n = scanCells(map, posx_tile, posy_tile, ((maxTilesX / 2) | 0) + 1, ((maxTilesY / 2) | 0) + 1);
+            var tmp_posx_tile = (mouse_x / tilesize) | 0;
+            var tmp_posy_tile = (mouse_y / tilesize) | 0;
+            var tmp_posx = mouse_x | 0;
+            var tmp_posy = mouse_y | 0;
+            var tmp_midx = mousePosX | 0;
+            var tmp_midy = mousePosY | 0;
+            var n = scanCells(map, tmp_posx_tile, tmp_posy_tile, shadowTileSize - 1, shadowTileSize - 1);
+            //var n = scanCells(map, posx_tile, posy_tile, shadowTileSize - 1, shadowTileSize - 1);
+            var edges = getEdges(map, n, tmp_midx - tmp_posx, tmp_midy - tmp_posy, tilesize);
+            //var edges = getEdges(map, n, midx - posx, midy - posy, tilesize);
 
-            var px = unitpos[unit][1] + midx - posx;
-            var py = unitpos[unit][0] + midy - posy;
-            var endpoints = getShadowEndpoints(edges, px, py, tilesize, shadowSize);
+            var px = posx + tmp_midx - posx;
+            var py = posy + tmp_midy - posy;
+            var tmp_px = tmp_posx + tmp_midx - tmp_posx;
+            var tmp_py = tmp_posy + tmp_midy - tmp_posy;
+            
+            var lineList = getLineList(edges, tmp_px, tmp_py, tilesize, shadowSize);
+            //var lineList = getLineList(edges, px, py, tilesize, shadowSize);
+            
+            var result = getShadowEndpoints(lineList, tmp_px, tmp_py, tilesize, shadowSize);
+            //var result = getShadowEndpoints(lineList, px, py, tilesize, shadowSize);
+            var endpoints = result[0];
+            var lineList = result[1];
+            
+            
             // Draw filled shadowvolume
             context.beginPath();
-            //context.strokeStyle = "#00ff00";
             context.strokeStyle = 0;
             context.moveTo(endpoints[0][0], endpoints[0][1]);
             for (var i = 0; i < endpoints.length; i++)
                 context.lineTo(endpoints[i][0], endpoints[i][1]);
 
-            //context.globalCompositeOperation = "screen";
-            //var rad2 = 100;
-            //var grd = context.createRadialGradient(screenX/2, screenY/2, 5, screenX/2, screenY/2, rad2);
-            //grd.addColorStop(0,"grey");
-            //grd.addColorStop(1,"black");
-            //context.fillStyle = grd;
-            context.fillStyle = "grey";
+            context.globalCompositeOperation = "screen";
+            var rad2 = shadowSize;
+            
+            var grd = context.createRadialGradient(tmp_midx, tmp_midy, 5, tmp_midx, tmp_midy, rad2);
+            grd.addColorStop(0,"grey");
+            grd.addColorStop(1,"#111111");
+            context.fillStyle = grd;
+            //context.fillStyle = "grey";
             context.closePath();
             context.fill();
             //context.globalCompositeOperation = "source-over";
+            
         }
         
- 
         //
         //  DRAWING STUFFS
         //
         
-        
         // Draw selection rectangle below mouse position.
         context.beginPath();
         context.strokeStyle = "#000000";
-        context.rect(mouse_x_tile * tilesize + midx - posx + 1, mouse_y_tile * tilesize + midy - posy + 1, tilesize - 2, tilesize - 2);
+        context.rect(mouse_x_tile * tilesize + midx - posx + 1, + mouse_y_tile * tilesize + midy - posy + 1, + tilesize - 2, tilesize - 2);
         context.stroke();
         
-        // Draw timer-bar above units head
-        // shows Cooldown-timer
+        // Draw timer-bar above units head, shows Cooldown-timer
         context.fillStyle = "#ff8844";
         for (var i = 0; i < units.length; i++)
         {
-            //if (units[i].type === 0)
+            if (units[i].attackCooldownCur > 0)
             {
                 // Check if unit is ON-SCREEN
-                //xx = unitpos[i][1] + midx - posx;
-                //yy = unitpos[i][0] + midy - posy;
                 xx = units[i].x + midx - posx;
                 yy = units[i].y + midy - posy;
-                //context.rect(xx, yy - 30, 100, 15);
                 var mx = 100; // base
 
-                if (units[i].attackCooldownCur > 0)
-                {
-                    var steps = mx / units[i].attackCooldownMax;
-                    units[i].attackCooldownCur = units[i].attackCooldownCur - 1;
+                var steps = mx / units[i].attackCooldownMax;
+                units[i].attackCooldownCur = units[i].attackCooldownCur - 1;
 
-                    mx = ((steps * units[i].attackCooldownCur)) | 0;
+                mx = ((steps * units[i].attackCooldownCur)) | 0;
 
-                    context.rect(xx-1, yy - 21, 102, 9);
-                    context.fillRect(xx, yy - 20, mx, 7);
-
-                }
+                context.rect(xx - 1, yy - 21, 102, 9);
+                context.fillRect(xx, yy - 20, mx, 7);
             }
         }
         context.stroke();
         
-        /*
-        for (var i = 0; i < units.length; i++)
+        if (SHADOWS)
         {
-            if (units[i].type === 0)
+            context.beginPath();
+            context.strokeStyle = "#0000FF";
+            context.lineWidth = 2;
+            for (var i = 0; i < lineList.length; i++)
             {
-                xx = unitpos[i][1] + midx - posx;
-                yy = unitpos[i][0] + midy - posy;
-                context.fillText(units[i].name, xx, yy);
+                context.moveTo(lineList[i][0], lineList[i][1]);
+                context.lineTo(lineList[i][2], lineList[i][3]);
             }
+            context.stroke();
+            context.lineWidth = 1;
         }
-        */
-        /*
-        // Draw visible walls
-        context.beginPath();
-        context.strokeStyle = "#000000";
-        context.lineWidth = 0.5;
-        for (var i = 0; i < lineList.length; i++)
-        {
-            context.moveTo(lineList[i][0], lineList[i][1]);
-            context.lineTo(lineList[i][2], lineList[i][3]);
-        }
-        context.stroke();
-        */
-       
-        // GRID?
-        /*
-        context.strokeStyle = "#999999";
-        context.beginPath();
-        for (var y = starty; y < endy; y++)
-        {
-            drawy = (y * tilesize) + midy - posy;
-            context.moveTo(0, drawy);
-            context.lineTo(screenX, drawy);
-        }
-        for (var x = startx; x < endx; x++)
-        {
-            drawx = (x * tilesize) + midx - posx;
-            context.moveTo(drawx, 0);
-            context.lineTo(drawx, screenY);
-        }
-        context.stroke();
-        */
        
         // Draw circle on current UNIT
         context.beginPath();
         context.strokeStyle = "#00ff00";
-        //xx = unitpos[unit][1] + midx - posx;
-        //yy = unitpos[unit][0] + midy - posy;
-        xx = units[unit].x + midx - posx;
-        yy = units[unit].y + midy - posy;
-        context.arc(xx, yy, tilesize/2, 0, Math.PI*2);
+        context.arc(units[unit].x + midx - posx, units[unit].y + midy - posy, tilesize/2, 0, Math.PI*2);
         context.stroke();
 
         // Draw circle on current units TARGET
@@ -640,50 +553,20 @@ $(document).ready(function()
         {
             context.strokeStyle = "#ff0000";
             context.beginPath();
-            //xx = unitpos[tar][1] + midx - posx;
-            //yy = unitpos[tar][0] + midy - posy;
-            xx = units[tar].x + midx - posx;
-            yy = units[tar].y + midy - posy;
-            context.arc(xx, yy, tilesize/2, 0, Math.PI * 2);
+            context.arc(units[tar].x + midx - posx, units[tar].y + midy - posy, tilesize/2, 0, Math.PI * 2);
             context.stroke();
         }
 
-        // Draw unit IDs.
-        // TODO: boundary check
-        var xx, yy;
-        //context.font = "12px Consolas";
-        //context.fillStyle = "lightgreen";
-        var xt, yt;
-        for (var i = 0; i < units.length; i++)
-        {
-            if (units[i].type === 0)
-            {
-                yt = 2*32;
-                xt = 1*32;
-            }
-            else
-            {
-                yt = 3*32;
-                xt = 7*32;
-            }
-            //xx = unitpos[i][1] + midx - posx;
-            //yy = unitpos[i][0] + midy - posy;
-            xx = units[i].x + midx - posx;
-            yy = units[i].y + midy - posy;
-            context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
-        }
-        /*
-        context.fillStyle = "lightcoral";
-        for (var i = 0; i < units.length; i++)
-        {
-            if (units[i].type === 1)
-            {
-                xx = unitpos[i][1] + midx - posx;
-                yy = unitpos[i][0] + midy - posy;
-                context.drawImage(img, xt, yt, 32, 32, xx-(tilesize/2), yy-(tilesize/2), tilesize, tilesize);
-            }
-        }
-        */
+        // Draw units.
+        context.font = "12px Consolas";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillStyle = "lightgreen";
+        for (var i = 0; i < 6; i++)
+            context.fillText(units[i].name, units[i].x + midx - posx, units[i].y + midy - posy);
+        context.fillStyle = "#dd4444";
+        for (var i = 6; i < 20; i++)
+            context.fillText(units[i].name, units[i].x + midx - posx, units[i].y + midy - posy);
     }
     
     function attack(u1, u2)
@@ -716,28 +599,16 @@ $(document).ready(function()
             
     }
  
-    window.setInterval(function rndMovement()
+    // Sends each unit to a random cell every n ms. Just for testing purposes.
+    /*
+    window.setInterval(function ()
     {
-        
-        var c = [0, 0];
-
-        for (var i = 0; i < units.length; i++)
-        {
-            if (i !== unit)
-            {    
-            c = findRandomCell();
-
-            // move unit 0 to c.
-            if (!units[i].isMoving)
-                moveTo(i, c);
-            }
-        }
-        
-        //console.log("cell: ", c[0], c[1]);
-    }, 1000)
-
+        for (var i = 0; i < 6; i++)
+            if (i !== unit && !units[i].isMoving)
+                    moveTo(i, findRandomCell());
+    }, 1000);
+    */
     // Returns x, y location of an empty cell. 
-    
     function findRandomCell()
     {
         var x, y;
@@ -758,6 +629,7 @@ $(document).ready(function()
     
     // Creates a html table using unit data. Should change this to bootstrap instead, so only single
     // values need to be updated.
+    // NB! This is currently only called once.
     function update_party()
     {
         // fill datatable
@@ -798,11 +670,32 @@ $(document).ready(function()
 
     function startup()
     {
-        rand();
+        createMap();
         update_party();
+        draw_unitinfo(unit);
 
         render();
     }
+    
+    // Change selected using through keyboard 1-6.
+    window.onkeypress = function (event)
+    {
+        var key = event.keyCode;
+        if (event.keyCode > 48 && event.keyCode < 55)
+        {
+            unit = event.keyCode - 49;
+            draw_unitinfo(unit);
+        }
+
+        if (key === 97)
+        {
+            if (units[unit].targetUnit === -1)
+                console.log(units[unit].name + " has no target.");
+            else
+                actAttack(unit);
+        }
+    };
+
 
 });
 
